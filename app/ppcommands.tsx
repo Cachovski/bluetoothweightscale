@@ -1,21 +1,25 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useState } from "react";
 import {
   Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { useBLEContext } from "../contexts/BLEContext";
 
 export default function PPCommandsScreen() {
+  const [helpModalVisible, setHelpModalVisible] = useState(false);
   const [sending, setSending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("COM");
   const [selectedCOM, setSelectedCOM] = useState<"COM 1" | "COM 2">("COM 1");
   const [baudModalVisible, setBaudModalVisible] = useState(false);
-  const [baudAction, setBaudAction] = useState<"Write" | "Read" | null>(null);
+  const [baudAction, setBaudAction] = useState<"Write" | "Read">("Read");
+  const [baudValue, setBaudValue] = useState("");
+  const [baudError, setBaudError] = useState("");
   const ble = useBLEContext();
 
   // Command categories
@@ -55,24 +59,26 @@ export default function PPCommandsScreen() {
     return (~sum + 1) & 0xff;
   }
 
-  // Helper: Build COM command (Write Baudrate/Read Baudrate)
-  function buildCOMCommand(com: "COM 1" | "COM 2"): number[] {
-    // Format: [DD, DD, 02, 02, 01, 01, 00, data, checksum, 03]
-    // data: 0x01 for COM 1, 0x02 for COM 2
-    const dataByte = com === "COM 1" ? 0x01 : 0x02;
-    const arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, dataByte];
-    const checksum = calculateChecksum(arr);
-    return [...arr, checksum, 0x03];
-  }
 
-  const handlePPCommand = async (cmd: string) => {
+  // Generic PP command sender
+  async function sendPPCommand({
+    type,
+    com,
+    value,
+    raw,
+  }: {
+    type: "baudrate-write" | "baudrate-read" | "com" | "raw";
+    com?: "COM 1" | "COM 2";
+    value?: number;
+    raw?: string;
+  }) {
     if (!ble || !ble.bleService) {
       alert("Not connected to a device");
       return;
     }
     setSending(true);
     try {
-      // Find DD08 characteristic
+      // Find DD08 characteristic (not used directly, but for logic clarity)
       const dd08 = ble.bleService?.characteristics.find(
         (c) =>
           c.uuid.toLowerCase() ===
@@ -83,23 +89,40 @@ export default function PPCommandsScreen() {
       );
       if (!dd08) throw new Error("DD08 characteristic not found");
 
-      // If COM 1 or COM 2, build and send the real command
-      if (cmd === "com_cmd_1" || cmd === "com_cmd_2") {
-        const com = cmd === "com_cmd_1" ? "COM 1" : "COM 2";
-        const bytes = buildCOMCommand(com);
-        // Convert to string for sendTCommand (expects string, will be base64 encoded)
-        const str = String.fromCharCode(...bytes);
-        await ble.sendTCommand(str);
+      let arr: number[] = [];
+      if (type === "baudrate-write") {
+        // Write: DDDD0202010100(data)checksum03
+        // [0xdd,0xdd,0x02,0x02,0x01,0x01,0x00, comByte, valueByte, checksum, 0x03]
+        const comByte = com === "COM 1" ? 0x01 : 0x02;
+        arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, comByte, value ?? 0];
+      } else if (type === "baudrate-read") {
+        // Read: DDDD0201000100(data)checksum03
+        // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x00, comByte, checksum, 0x03]
+        const comByte = com === "COM 1" ? 0x01 : 0x02;
+        arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x00, comByte];
+      } else if (type === "com") {
+        // COM command (for future use)
+        const comByte = com === "COM 1" ? 0x01 : 0x02;
+        arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, comByte];
+      } else if (type === "raw" && typeof raw === "string") {
+        await ble.sendTCommand(raw);
+        setSending(false);
+        return;
       } else {
-        // Fallback: send as before for other commands
-        await ble.sendTCommand(cmd);
+        alert("Unknown command type");
+        setSending(false);
+        return;
       }
+      const checksum = calculateChecksum(arr);
+      const bytes = [...arr, checksum, 0x03];
+      const str = String.fromCharCode(...bytes);
+      await ble.sendTCommand(str);
     } catch (e: any) {
       alert(e.message || "Failed to send command");
     } finally {
       setSending(false);
     }
-  };
+  }
 
   return (
     <ScrollView style={styles.container}>
@@ -167,7 +190,7 @@ export default function PPCommandsScreen() {
         </>
       )}
 
-      {/* Modal for Write/Read Baudrate choice */}
+      {/* Modal for Write/Read Baudrate choice with toggles and input */}
       <Modal
         visible={baudModalVisible}
         transparent
@@ -176,35 +199,206 @@ export default function PPCommandsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Action</Text>
-            <Pressable
-              style={styles.modalButton}
-              onPress={() => {
-                setBaudAction("Write");
-                setBaudModalVisible(false);
-                // TODO: handle write baudrate logic
-              }}
-            >
-              <Text style={styles.modalButtonText}>Write Baudrate</Text>
-            </Pressable>
-            <Pressable
-              style={styles.modalButton}
-              onPress={() => {
-                setBaudAction("Read");
-                setBaudModalVisible(false);
-                // TODO: handle read baudrate logic
-              }}
-            >
-              <Text style={styles.modalButtonText}>Read Baudrate</Text>
-            </Pressable>
-            <Pressable
+            <Text style={styles.modalTitle}>Write/Read Baudrate</Text>
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleButton, baudAction === "Read" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setBaudAction("Read");
+                  setBaudError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, baudAction === "Read" && styles.toggleButtonTextActive]}>Read</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, baudAction === "Write" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setBaudAction("Write");
+                  setBaudError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, baudAction === "Write" && styles.toggleButtonTextActive]}>Write</Text>
+              </TouchableOpacity>
+            </View>
+            {baudAction === "Write" && (
+              <View style={{ width: "100%", marginTop: 16 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 15, color: "#333" }}>Baudrate Value (0-7):</Text>
+                  <TouchableOpacity
+                    style={styles.helpButton}
+                    onPress={() => setHelpModalVisible(true)}
+                    accessibilityLabel="Show baudrate value table"
+                  >
+                    <Ionicons name="help-circle-outline" size={22} color="#888" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    maxLength={1}
+                    value={baudValue}
+                    onChangeText={(text: string) => {
+                      // Only allow 0-7
+                      if (/^[0-7]?$/.test(text)) {
+                        setBaudValue(text);
+                        setBaudError("");
+                      }
+                    }}
+                    placeholder="0-7"
+                  />
+                </View>
+                {baudError ? <Text style={styles.errorText}>{baudError}</Text> : null}
+              </View>
+            )}
+      {/* Help modal for baudrate value table */}
+      <Modal
+        visible={helpModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHelpModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { width: 320 }]}> 
+            <Text style={styles.modalTitle}>Baudrate Value Table</Text>
+            <View style={{ width: "100%", marginBottom: 12 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
+                <Text style={{ fontWeight: "bold", color: "#333" }}>Value</Text>
+                <Text style={{ fontWeight: "bold", color: "#333" }}>Baudrate</Text>
+              </View>
+              <View style={{ borderBottomWidth: 1, borderColor: "#eee", marginBottom: 6 }} />
+              {[
+                { value: "0x00", baud: "1200" },
+                { value: "0x01", baud: "2400" },
+                { value: "0x02", baud: "4800" },
+                { value: "0x03", baud: "9600" },
+                { value: "0x04", baud: "19200" },
+                { value: "0x05", baud: "38400" },
+                { value: "0x06", baud: "57600" },
+                { value: "0x07", baud: "115200" },
+              ].map((row, idx) => (
+                <View key={row.value} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                  <Text style={{ color: "#333" }}>{row.value}</Text>
+                  <Text style={{ color: "#333" }}>{row.baud}</Text>
+                </View>
+              ))}
+            </View>
+            <TouchableOpacity
               style={[styles.modalButton, { backgroundColor: "#eee" }]}
-              onPress={() => setBaudModalVisible(false)}
+              onPress={() => setHelpModalVisible(false)}
             >
-              <Text style={[styles.modalButtonText, { color: "#333" }]}>
-                Cancel
-              </Text>
-            </Pressable>
+              <Text style={[styles.modalButtonText, { color: "#333" }]}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+            <View style={{ flexDirection: "row", marginTop: 24, width: "100%", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginRight: 8 }]}
+                onPress={async () => {
+                  if (!ble || !ble.bleService) {
+                    setBaudError("Not connected");
+                    return;
+                  }
+                  setSending(true);
+                  try {
+                    // Find DD08 characteristic (not used directly, but for logic clarity)
+                    const dd08 = ble.bleService?.characteristics.find(
+                      (c) =>
+                        c.uuid.toLowerCase() ===
+                          ble.bleService?.characteristics[0]?.uuid
+                            .toLowerCase()
+                            .replace(/dd0[1-5]/, "dd08") ||
+                        c.uuid.toLowerCase() === "0000dd08-0000-1000-8000-00805f9b34fb"
+                    );
+                    if (!dd08) throw new Error("DD08 characteristic not found");
+
+                    // COM port byte
+                    const comByte = selectedCOM === "COM 1" ? 0x01 : 0x02;
+
+                    let arr;
+                    if (baudAction === "Write") {
+                      if (!baudValue.match(/^[0-7]$/)) {
+                        setBaudError("Enter a value 0-7");
+                        setSending(false);
+                        return;
+                      }
+                      // Write: DDDD0202010100(data)checksum03
+                      // [0xdd,0xdd,0x02,0x02,0x01,0x01,0x00, comByte, valueByte, checksum, 0x03]
+                      const valueByte = parseInt(baudValue, 10);
+                      arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, comByte, valueByte];
+                    } else {
+                      // Read: DDDD0201000100(data)checksum03
+                      // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x00, comByte, checksum, 0x03]
+                      arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x00, comByte];
+                    }
+                    const checksum = calculateChecksum(arr);
+                    const bytes = [...arr, checksum, 0x03];
+                    const str = String.fromCharCode(...bytes);
+                    await ble.sendTCommand(str);
+                    setBaudModalVisible(false);
+                    setBaudValue("");
+                    setBaudError("");
+                  } catch (e) {
+                    setBaudError((e as any).message || "Failed to send");
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginLeft: 8, backgroundColor: "#eee" }]}
+                onPress={() => {
+                  setBaudModalVisible(false);
+                  setBaudValue("");
+                  setBaudError("");
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: "#333" }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: "row", marginTop: 24, width: "100%", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginRight: 8 }]}
+                onPress={async () => {
+                  if (!ble || !ble.bleService) {
+                    setBaudError("Not connected");
+                    return;
+                  }
+                  try {
+                    if (baudAction === "Write") {
+                      if (!baudValue.match(/^[0-7]$/)) {
+                        setBaudError("Enter a value 0-7");
+                        setSending(false);
+                        return;
+                      }
+                      await sendPPCommand({ type: "baudrate-write", com: selectedCOM, value: parseInt(baudValue, 10) });
+                    } else {
+                      await sendPPCommand({ type: "baudrate-read", com: selectedCOM });
+                    }
+                    setBaudModalVisible(false);
+                    setBaudValue("");
+                    setBaudError("");
+                  } catch (e) {
+                    setBaudError((e as any).message || "Failed to send");
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginLeft: 8, backgroundColor: "#eee" }]}
+                onPress={() => {
+                  setBaudModalVisible(false);
+                  setBaudValue("");
+                  setBaudError("");
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: "#333" }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -221,7 +415,7 @@ export default function PPCommandsScreen() {
               <TouchableOpacity
                 key={idx}
                 style={styles.commandButton}
-                onPress={() => handlePPCommand(btn.command)}
+                onPress={() => sendPPCommand({ type: "raw", raw: btn.command })}
               >
                 <Text style={styles.buttonText}>{btn.title}</Text>
                 <Text style={styles.commandText}>{btn.command}</Text>
@@ -240,6 +434,34 @@ export default function PPCommandsScreen() {
 }
 
 const styles = StyleSheet.create({
+  toggleRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+                  if (baudAction === "Write") {
+                    if (!baudValue.match(/^[0-7]$/)) {
+                      setBaudError("Enter a value 0-7");
+                      setSending(false);
+                      return;
+                    }
+                    await sendPPCommand({ type: "baudrate-write", com: selectedCOM, value: parseInt(baudValue, 10) });
+                  } else {
+                    await sendPPCommand({ type: "baudrate-read", com: selectedCOM });
+                  }
+                  setBaudModalVisible(false);
+                  setBaudValue("");
+                  setBaudError("");
+    marginLeft: 8,
+    justifyContent: "center",
+    alignItems: "center",
+    height: 40,
+    width: 40,
+  },
+  errorText: {
+    color: "#ff3333",
+    fontSize: 13,
+    marginTop: 2,
+    textAlign: "center",
+  },
   comToggleButton: {
     flex: 1,
     backgroundColor: "#eee",
