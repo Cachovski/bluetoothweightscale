@@ -12,6 +12,7 @@ export const BLE_UUIDS = {
   DD02: "0000dd02-0000-1000-8000-00805f9b34fb", // P message (weight data)
   DD03: "0000dd03-0000-1000-8000-00805f9b34fb", // R message (display)
   DD04: "0000dd04-0000-1000-8000-00805f9b34fb", // T message (total weight)
+  DD05: "0000dd05-0000-1000-8000-00805f9b34fb", // J message
   DD08: "0000dd08-0000-1000-8000-00805f9b34fb", // Command characteristic
 };
 

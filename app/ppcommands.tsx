@@ -59,18 +59,17 @@ export default function PPCommandsScreen() {
     return (~sum + 1) & 0xff;
   }
 
-
   // Generic PP command sender
   async function sendPPCommand({
     type,
     com,
     value,
-    raw,
+    rawCommand,
   }: {
-    type: "baudrate-write" | "baudrate-read" | "com" | "raw";
+    type: "baudrate-write" | "baudrate-read" | "raw";
     com?: "COM 1" | "COM 2";
     value?: number;
-    raw?: string;
+    rawCommand?: string;
   }) {
     if (!ble || !ble.bleService) {
       alert("Not connected to a device");
@@ -78,7 +77,7 @@ export default function PPCommandsScreen() {
     }
     setSending(true);
     try {
-      // Find DD08 characteristic (not used directly, but for logic clarity)
+      // Find DD08 characteristic
       const dd08 = ble.bleService?.characteristics.find(
         (c) =>
           c.uuid.toLowerCase() ===
@@ -90,6 +89,7 @@ export default function PPCommandsScreen() {
       if (!dd08) throw new Error("DD08 characteristic not found");
 
       let arr: number[] = [];
+      
       if (type === "baudrate-write") {
         // Write: DDDD0202010100(data)checksum03
         // [0xdd,0xdd,0x02,0x02,0x01,0x01,0x00, comByte, valueByte, checksum, 0x03]
@@ -100,23 +100,22 @@ export default function PPCommandsScreen() {
         // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x00, comByte, checksum, 0x03]
         const comByte = com === "COM 1" ? 0x01 : 0x02;
         arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x00, comByte];
-      } else if (type === "com") {
-        // COM command (for future use)
-        const comByte = com === "COM 1" ? 0x01 : 0x02;
-        arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, comByte];
-      } else if (type === "raw" && typeof raw === "string") {
-        await ble.sendTCommand(raw);
+      } else if (type === "raw" && rawCommand) {
+        // For legacy commands, send as string
+        await ble.sendTCommand(rawCommand);
         setSending(false);
         return;
       } else {
-        alert("Unknown command type");
+        alert("Invalid command parameters");
         setSending(false);
         return;
       }
+
       const checksum = calculateChecksum(arr);
       const bytes = [...arr, checksum, 0x03];
-      const str = String.fromCharCode(...bytes);
-      await ble.sendTCommand(str);
+      
+      // Use the dedicated PP command function
+      await ble.sendPPCommand(bytes);
     } catch (e: any) {
       alert(e.message || "Failed to send command");
     } finally {
@@ -300,83 +299,22 @@ export default function PPCommandsScreen() {
                     setBaudError("Not connected");
                     return;
                   }
-                  setSending(true);
-                  try {
-                    // Find DD08 characteristic (not used directly, but for logic clarity)
-                    const dd08 = ble.bleService?.characteristics.find(
-                      (c) =>
-                        c.uuid.toLowerCase() ===
-                          ble.bleService?.characteristics[0]?.uuid
-                            .toLowerCase()
-                            .replace(/dd0[1-5]/, "dd08") ||
-                        c.uuid.toLowerCase() === "0000dd08-0000-1000-8000-00805f9b34fb"
-                    );
-                    if (!dd08) throw new Error("DD08 characteristic not found");
-
-                    // COM port byte
-                    const comByte = selectedCOM === "COM 1" ? 0x01 : 0x02;
-
-                    let arr;
-                    if (baudAction === "Write") {
-                      if (!baudValue.match(/^[0-7]$/)) {
-                        setBaudError("Enter a value 0-7");
-                        setSending(false);
-                        return;
-                      }
-                      // Write: DDDD0202010100(data)checksum03
-                      // [0xdd,0xdd,0x02,0x02,0x01,0x01,0x00, comByte, valueByte, checksum, 0x03]
-                      const valueByte = parseInt(baudValue, 10);
-                      arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x00, comByte, valueByte];
-                    } else {
-                      // Read: DDDD0201000100(data)checksum03
-                      // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x00, comByte, checksum, 0x03]
-                      arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x00, comByte];
-                    }
-                    const checksum = calculateChecksum(arr);
-                    const bytes = [...arr, checksum, 0x03];
-                    const str = String.fromCharCode(...bytes);
-                    await ble.sendTCommand(str);
-                    setBaudModalVisible(false);
-                    setBaudValue("");
-                    setBaudError("");
-                  } catch (e) {
-                    setBaudError((e as any).message || "Failed to send");
-                  } finally {
-                    setSending(false);
-                  }
-                }}
-              >
-                <Text style={styles.modalButtonText}>Confirm</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginLeft: 8, backgroundColor: "#eee" }]}
-                onPress={() => {
-                  setBaudModalVisible(false);
-                  setBaudValue("");
-                  setBaudError("");
-                }}
-              >
-                <Text style={[styles.modalButtonText, { color: "#333" }]}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={{ flexDirection: "row", marginTop: 24, width: "100%", justifyContent: "space-between" }}>
-              <TouchableOpacity
-                style={[styles.modalButton, { flex: 1, marginRight: 8 }]}
-                onPress={async () => {
-                  if (!ble || !ble.bleService) {
-                    setBaudError("Not connected");
-                    return;
-                  }
                   try {
                     if (baudAction === "Write") {
                       if (!baudValue.match(/^[0-7]$/)) {
                         setBaudError("Enter a value 0-7");
-                        setSending(false);
                         return;
                       }
-                      await sendPPCommand({ type: "baudrate-write", com: selectedCOM, value: parseInt(baudValue, 10) });
+                      await sendPPCommand({ 
+                        type: "baudrate-write", 
+                        com: selectedCOM, 
+                        value: parseInt(baudValue, 10) 
+                      });
                     } else {
-                      await sendPPCommand({ type: "baudrate-read", com: selectedCOM });
+                      await sendPPCommand({ 
+                        type: "baudrate-read", 
+                        com: selectedCOM 
+                      });
                     }
                     setBaudModalVisible(false);
                     setBaudValue("");
@@ -415,7 +353,7 @@ export default function PPCommandsScreen() {
               <TouchableOpacity
                 key={idx}
                 style={styles.commandButton}
-                onPress={() => sendPPCommand({ type: "raw", raw: btn.command })}
+                onPress={() => sendPPCommand({ type: "raw", rawCommand: btn.command })}
               >
                 <Text style={styles.buttonText}>{btn.title}</Text>
                 <Text style={styles.commandText}>{btn.command}</Text>
@@ -425,9 +363,71 @@ export default function PPCommandsScreen() {
         </View>
       )}
       <View style={styles.responseSection}>
-        <Text style={styles.responseText}>
-          {sending ? "Sending..." : ble?.ppResponse || "No response yet."}
-        </Text>
+        <Text style={styles.responseTitle}>PP Command Response</Text>
+        {sending ? (
+          <Text style={styles.responseText}>⏳ Sending command...</Text>
+        ) : ble?.ppResponse ? (
+          <View style={styles.responseDetails}>
+            {/* Parse and display the response in detail */}
+            {(() => {
+              const responseStr = ble.ppResponse;
+              if (responseStr.startsWith("Response: ")) {
+                const hexResponse = responseStr.replace("Response: ", "");
+                
+                // Convert hex string back to bytes for analysis
+                const bytes: number[] = [];
+                for (let i = 0; i < hexResponse.length; i += 2) {
+                  bytes.push(parseInt(hexResponse.substr(i, 2), 16));
+                }
+                
+                return (
+                  <View>
+                    <Text style={styles.responseLabel}>📩 Raw Response Data:</Text>
+                    <Text style={styles.responseValue}>- Length: {bytes.length} bytes</Text>
+                    <Text style={styles.responseValue}>- Hex: {hexResponse}</Text>
+                    <Text style={styles.responseValue}>- Bytes: [{bytes.join(', ')}]</Text>
+                    
+                    {bytes.length > 0 && (
+                      <>
+                        <Text style={styles.responseLabel}>📩 Response Analysis:</Text>
+                        <Text style={styles.responseValue}>- First byte: 0x{bytes[0].toString(16).padStart(2, '0').toUpperCase()} ({bytes[0]})</Text>
+                        {bytes.length > 1 && (
+                          <Text style={styles.responseValue}>- Last byte: 0x{bytes[bytes.length - 1].toString(16).padStart(2, '0').toUpperCase()} ({bytes[bytes.length - 1]})</Text>
+                        )}
+                        
+                        <Text style={styles.responseLabel}>📩 ASCII Interpretation:</Text>
+                        <Text style={styles.responseValue}>
+                          {bytes.map((byte, index) => {
+                            if (byte >= 32 && byte <= 126) {
+                              return String.fromCharCode(byte);
+                            } else {
+                              return `[${byte}]`;
+                            }
+                          }).join('')}
+                        </Text>
+                        
+                        <Text style={styles.responseLabel}>📩 Response Type:</Text>
+                        {bytes[0] === 0xDD && bytes.length > 1 && bytes[1] === 0xDD ? (
+                          <Text style={styles.responseSuccess}>✅ Valid PP Response (starts with DDDD)</Text>
+                        ) : bytes[0] === 0x06 ? (
+                          <Text style={styles.responseSuccess}>✅ ACK Response (0x06)</Text>
+                        ) : bytes[0] === 0x15 ? (
+                          <Text style={styles.responseError}>❌ NAK Response (0x15)</Text>
+                        ) : (
+                          <Text style={styles.responseWarning}>⚠️ Unknown Response Pattern</Text>
+                        )}
+                      </>
+                    )}
+                  </View>
+                );
+              } else {
+                return <Text style={styles.responseText}>{responseStr}</Text>;
+              }
+            })()}
+          </View>
+        ) : (
+          <Text style={styles.responseText}>🔍 No response yet. Send a command to see detailed response analysis.</Text>
+        )}
       </View>
     </ScrollView>
   );
@@ -437,19 +437,49 @@ const styles = StyleSheet.create({
   toggleRow: {
     flexDirection: "row",
     justifyContent: "center",
-                  if (baudAction === "Write") {
-                    if (!baudValue.match(/^[0-7]$/)) {
-                      setBaudError("Enter a value 0-7");
-                      setSending(false);
-                      return;
-                    }
-                    await sendPPCommand({ type: "baudrate-write", com: selectedCOM, value: parseInt(baudValue, 10) });
-                  } else {
-                    await sendPPCommand({ type: "baudrate-read", com: selectedCOM });
-                  }
-                  setBaudModalVisible(false);
-                  setBaudValue("");
-                  setBaudError("");
+    marginBottom: 8,
+    gap: 12,
+    width: "100%",
+  },
+  toggleButton: {
+    flex: 1,
+    backgroundColor: "#eee",
+    borderRadius: 8,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#bbb",
+  },
+  toggleButtonActive: {
+    backgroundColor: "#ff0000",
+    borderColor: "#000000",
+  },
+  toggleButtonText: {
+    color: "#333",
+    fontWeight: "600",
+    fontSize: 16,
+  },
+  toggleButtonTextActive: {
+    color: "#fff",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#bbb",
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 16,
+    backgroundColor: "#fafafa",
+    color: "#333",
+    textAlign: "center",
+  },
+  helpButton: {
     marginLeft: 8,
     justifyContent: "center",
     alignItems: "center",
@@ -608,6 +638,47 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: "#ddd",
+  },
+  responseTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 12,
+  },
+  responseDetails: {
+    marginTop: 8,
+  },
+  responseLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  responseValue: {
+    fontSize: 13,
+    color: "#555",
+    marginLeft: 8,
+    marginBottom: 2,
+    fontFamily: "monospace",
+  },
+  responseSuccess: {
+    fontSize: 13,
+    color: "#28a745",
+    marginLeft: 8,
+    fontWeight: "600",
+  },
+  responseError: {
+    fontSize: 13,
+    color: "#dc3545",
+    marginLeft: 8,
+    fontWeight: "600",
+  },
+  responseWarning: {
+    fontSize: 13,
+    color: "#ffc107",
+    marginLeft: 8,
+    fontWeight: "600",
   },
   responseText: {
     fontSize: 14,

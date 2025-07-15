@@ -258,6 +258,28 @@ export const useBLE = () => {
       // Monitor characteristics for notifications
       setupNotifications(device.id, targetService.uuid, characteristics);
       
+      // Set up device state change monitoring
+      device.onDisconnected((error, device) => {
+        console.log("🔌 Device disconnected event triggered:", device?.id);
+        if (error) {
+          console.error("Disconnection error:", error);
+        }
+        
+        // Update connection state
+        setIsConnected(false);
+        setBleService(undefined);
+        setConnectionError("Device disconnected");
+        
+        // Clear weight data and responses
+        setWeightData(defaultWeightData);
+        setPPResponse("");
+        setRMessageData([]);
+        setTMessageData([]);
+        setJMessageData([]);
+        
+        console.log("🔄 Connection state reset due to disconnection");
+      });
+      
       // Update connected state
       setIsConnected(true);
       setConnectionError(null);
@@ -301,12 +323,18 @@ export const useBLE = () => {
     serviceUuid: string,
     characteristics: Characteristic[]
   ) => {
+    console.log("Setting up notifications for characteristics:", characteristics.map(c => c.uuid));
+    
     // For each characteristic we care about, set up notifications
     for (const characteristic of characteristics) {
       // Skip write-only characteristics
-      if (!characteristic.isNotifiable) continue;
+      if (!characteristic.isNotifiable) {
+        console.log(`Skipping ${characteristic.uuid} - not notifiable`);
+        continue;
+      }
       
       const charUuid = characteristic.uuid.toLowerCase();
+      console.log(`Checking characteristic: ${charUuid}`);
       
       // Check if it's one of our target characteristics
       if (
@@ -314,23 +342,28 @@ export const useBLE = () => {
         charUuid === BLE_UUIDS.DD02.toLowerCase() ||
         charUuid === BLE_UUIDS.DD03.toLowerCase() ||
         charUuid === BLE_UUIDS.DD04.toLowerCase() ||
-        charUuid === BLE_UUIDS.DD08.toLowerCase() ||
-        charUuid === '0000dd05-0000-1000-8000-00805f9b34fb'
+        charUuid === BLE_UUIDS.DD05.toLowerCase() ||
+        charUuid === BLE_UUIDS.DD08.toLowerCase()
       ) {
         try {
           // Subscribe to notifications
-          console.log(`Setting up notifications for ${charUuid}`);
+          console.log(`✅ Setting up notifications for ${charUuid}`);
           await bleManager.monitorCharacteristicForDevice(
             peripheralId,
             serviceUuid,
             characteristic.uuid,
             (error, characteristic) => {
               if (error) {
-                console.error(`Notification error for ${charUuid}:`, error);
+                console.error(`❌ Notification error for ${charUuid}:`, error);
                 return;
               }
               
-              if (!characteristic?.value) return;
+              if (!characteristic?.value) {
+                console.log(`⚠️ No value received for ${charUuid}`);
+                return;
+              }
+              
+              console.log(`📨 Received notification from ${charUuid}, value length: ${characteristic.value.length}`);
               
               // Handle the notification data
               handleUpdateValueForCharacteristic({
@@ -340,38 +373,77 @@ export const useBLE = () => {
             }
           );
           
-          console.log(`Notifications set up for ${charUuid}`);
+          console.log(`✅ Notifications successfully set up for ${charUuid}`);
         } catch (error) {
-          console.error(`Failed to set up notifications for ${charUuid}:`, error);
+          console.error(`❌ Failed to set up notifications for ${charUuid}:`, error);
         }
+      } else {
+        console.log(`⏭️ Skipping ${charUuid} - not a target characteristic`);
       }
     }
   };
 
   // Handle characteristic value updates
   const handleUpdateValueForCharacteristic = (data: any) => {
+    console.log(`🔄 Processing notification from ${data.uuid}, data length: ${data.value?.length || 0}`);
+    
     // Helper function to check if this is a specific characteristic
     const isCharacteristic = (shortId: string) => {
       return data.uuid.toLowerCase().includes(shortId.toLowerCase());
     };
+    
     if (data.value && Array.isArray(data.value)) {
-      // Helper function to check if this is a specific characteristic
-      const isCharacteristic = (shortId: string) => {
-        return data.uuid.toLowerCase().includes(shortId.toLowerCase());
-      };
-      
       // J Message (DD05)
       if (isCharacteristic("dd05")) {
-        console.log("� Processing dd05 J message data");
+        console.log("🔍 Processing dd05 J message data");
         setJMessageData(data.value);
         return;
       }
       // PP Command response (DD08)
       if (isCharacteristic("dd08")) {
-        // Assume response is ASCII string
-        const responseString = String.fromCharCode(...data.value);
-        setPPResponse(responseString);
-        console.log("📩 PP Command response (DD08):", responseString);
+        console.log("📩 ========== DD08 PP COMMAND RESPONSE ==========");
+        console.log("📩 Raw notification from DD08:");
+        console.log("📩 - Data length:", data.value?.length || 0);
+        console.log("📩 - Raw bytes:", data.value);
+        console.log("📩 - Bytes as decimal:", data.value?.map((b: number) => b.toString()).join(', '));
+        
+        // Convert response to hex string for display
+        const hexResponse = data.value.map((byte: number) => 
+          byte.toString(16).padStart(2, '0').toUpperCase()
+        ).join('');
+        console.log("📩 - Hex representation:", hexResponse);
+        
+        // Try to interpret as ASCII for debugging
+        const asciiAttempt = data.value.map((byte: number) => {
+          if (byte >= 32 && byte <= 126) {
+            return String.fromCharCode(byte);
+          } else {
+            return `[${byte}]`;
+          }
+        }).join('');
+        console.log("📩 - ASCII interpretation:", asciiAttempt);
+        
+        // Check if this looks like a command echo or actual response
+        if (data.value?.length > 0) {
+          const firstByte = data.value[0];
+          const lastByte = data.value[data.value.length - 1];
+          console.log("📩 - First byte: 0x" + firstByte.toString(16).padStart(2, '0').toUpperCase() + " (" + firstByte + ")");
+          console.log("📩 - Last byte: 0x" + lastByte.toString(16).padStart(2, '0').toUpperCase() + " (" + lastByte + ")");
+          
+          // Check for common PP response patterns
+          if (firstByte === 0xDD && data.value[1] === 0xDD) {
+            console.log("📩 - ✅ Looks like a valid PP response (starts with DDDD)");
+          } else if (firstByte === 0x06) {
+            console.log("📩 - ✅ Looks like an ACK response (0x06)");
+          } else if (firstByte === 0x15) {
+            console.log("📩 - ❌ Looks like a NAK response (0x15)");
+          } else {
+            console.log("📩 - ⚠️ Unknown response pattern");
+          }
+        }
+        
+        setPPResponse(`Response: ${hexResponse}`);
+        console.log("📩 ============================================");
         return;
       }
       // R Message (Display data)
@@ -607,6 +679,66 @@ export const useBLE = () => {
     }
   }, [bleService]);
 
+  // Send PP command to DD08 (byte array format)
+  const sendPPCommand = useCallback(async (bytes: number[]) => {
+    if (!bleService || !bleService.peripheralId) {
+      console.error("Cannot send PP command: Device not connected");
+      Alert.alert("Not Connected", "Please connect to a device first");
+      return false;
+    }
+    try {
+      console.log("📤 ========== SENDING PP COMMAND ==========");
+      const hexString = bytes.map(b => b.toString(16).padStart(2, '0').toUpperCase()).join('');
+      console.log(`📤 Command as hex: ${hexString}`);
+      console.log(`📤 Command as bytes: [${bytes.join(', ')}]`);
+      console.log(`📤 Command length: ${bytes.length} bytes`);
+      
+      // Parse the command structure for debugging
+      if (bytes.length >= 3 && bytes[0] === 0xDD && bytes[1] === 0xDD) {
+        console.log("📤 Command structure analysis:");
+        console.log(`📤 - Header: ${bytes[0].toString(16).toUpperCase()}${bytes[1].toString(16).toUpperCase()}`);
+        if (bytes.length > 2) console.log(`📤 - Command type: 0x${bytes[2].toString(16).padStart(2, '0').toUpperCase()}`);
+        if (bytes.length > 3) console.log(`📤 - Sub-command: 0x${bytes[3].toString(16).padStart(2, '0').toUpperCase()}`);
+        if (bytes.length > 8) console.log(`📤 - Data payload: [${bytes.slice(7, -2).join(', ')}]`);
+        if (bytes.length >= 2) {
+          const checksumByte = bytes[bytes.length - 2];
+          const endByte = bytes[bytes.length - 1];
+          console.log(`📤 - Checksum: 0x${checksumByte.toString(16).padStart(2, '0').toUpperCase()}`);
+          console.log(`📤 - End byte: 0x${endByte.toString(16).padStart(2, '0').toUpperCase()}`);
+        }
+      }
+      
+      const cmdChar = bleService.characteristics.find(c =>
+        c.uuid.toLowerCase() === BLE_UUIDS.DD08.toLowerCase()
+      );
+      if (!cmdChar) {
+        console.error(`Available characteristics:`, bleService.characteristics.map(c => c.uuid));
+        throw new Error(`Target characteristic ${BLE_UUIDS.DD08} not found`);
+      }
+      
+      // Convert byte array to base64 for transmission
+      const buffer = Buffer.from(bytes);
+      const base64String = buffer.toString('base64');
+      console.log(`📤 Base64 for BLE transmission: ${base64String}`);
+      console.log("📤 Sending to characteristic DD08...");
+      
+      await bleManager.writeCharacteristicWithoutResponseForDevice(
+        bleService.peripheralId,
+        bleService.serviceId,
+        cmdChar.uuid,
+        base64String
+      );
+      console.log("📤 ✅ PP Command sent successfully to DD08");
+      console.log("📤 ⏳ Waiting for response from DD08...");
+      console.log("📤 ==========================================");
+      return true;
+    } catch (error: any) {
+      console.error("📤 ❌ Failed to send PP command:", error);
+      Alert.alert("Command Failed", error.message || "Failed to send PP command");
+      return false;
+    }
+  }, [bleService]);
+
   // Check connection health
   const checkConnectionHealth = useCallback(async () => {
     if (!bleService || !bleService.peripheralId) {
@@ -697,6 +829,7 @@ export const useBLE = () => {
     disconnectFromPeripheral,
     sendTCommand,
     sendBMCommand,
+    sendPPCommand,
     checkConnectionHealth,
     setIsConnected,
   };
