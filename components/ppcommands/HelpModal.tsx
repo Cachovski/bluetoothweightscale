@@ -44,6 +44,15 @@ export default function HelpModal({ visible, onClose, type }: HelpModalProps) {
           { value: "0x00", meaning: "1 Bit" },
           { value: "0x01", meaning: "2 Bits" },
         ];
+      case "protocol":
+        return [
+          { value: "0x00", meaning: "Disable" },
+          { value: "0x01", meaning: "Marques" },
+          { value: "0x02", meaning: "Printer" },
+          { value: "0x03", meaning: "Reserved" },
+          { value: "0x04", meaning: "Reserved" },
+          { value: "0x05", meaning: "Reserved" },
+        ];
       default:
         return [];
     }
@@ -59,6 +68,8 @@ export default function HelpModal({ visible, onClose, type }: HelpModalProps) {
         return "Parity Value Table";
       case "stopbits":
         return "Stopbits Value Table";
+      case "protocol":
+        return "Protocol Value Table";
       default:
         return "Value Table";
     }

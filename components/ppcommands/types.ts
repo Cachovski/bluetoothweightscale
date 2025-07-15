@@ -1,7 +1,8 @@
 // Types for PP Commands
 export type CommandAction = "Write" | "Read";
 export type COMPort = "COM 1" | "COM 2";
-export type HelpModalType = "baudrate" | "databits" | "parity" | "stopbits";
+export type HelpModalType = "baudrate" | "databits" | "parity" | "stopbits" | "protocol";
+export type FrameType = "P" | "T" | "R" | "A" | "Z" | "J";
 
 export interface PPCommand {
   title: string;
@@ -10,10 +11,17 @@ export interface PPCommand {
 }
 
 export interface SendPPCommandParams {
-  type: "baudrate-write" | "baudrate-read" | "databits-write" | "databits-read" | "parity-write" | "parity-read" | "stopbits-write" | "stopbits-read" | "raw";
+  type: "baudrate-write" | "baudrate-read" | "databits-write" | "databits-read" | "parity-write" | "parity-read" | "stopbits-write" | "stopbits-read" | "protocol-write" | "protocol-read" | "frame-write" | "frame-read" | "raw";
   com?: COMPort;
   value?: number;
   rawCommand?: string;
+  frameType?: FrameType;
+}
+
+export interface FrameState {
+  [key: string]: {
+    [K in COMPort]: boolean | null; // null means unknown/not read yet
+  };
 }
 
 export interface CommandModalProps {
