@@ -1,23 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-  Image,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Image,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { CustomButton } from "../components/CustomButton";
 import {
-  createRMessageStatusFlags,
-  StatusIndicators,
+    createRMessageStatusFlags,
+    StatusIndicators,
 } from "../components/StatusIndicators";
 import { useBLEContext } from "../contexts/BLEContext";
 import {
-  borderRadius,
-  colors,
-  commonStyles,
-  spacing,
+    borderRadius,
+    colors,
+    commonStyles,
+    spacing,
 } from "../utils/commonStyles";
 import { parseRMessage, RMessageData } from "../utils/sniProtocol";
 import { showErrorAlert, validateConnection } from "../utils/uiHelpers";

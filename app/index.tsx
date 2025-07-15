@@ -6,10 +6,10 @@ import { CustomButton } from "../components/CustomButton";
 import WeightDisplay from "../components/WeightDisplay";
 import { useBLEContext } from "../contexts/BLEContext";
 import {
-  borderRadius,
-  colors,
-  commonStyles,
-  spacing,
+    borderRadius,
+    colors,
+    commonStyles,
+    spacing,
 } from "../utils/commonStyles";
 
 export default function Index() {

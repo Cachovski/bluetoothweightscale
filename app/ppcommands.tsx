@@ -13,6 +13,7 @@ import { useBLEContext } from "../contexts/BLEContext";
 
 export default function PPCommandsScreen() {
   const [helpModalVisible, setHelpModalVisible] = useState(false);
+  const [helpModalType, setHelpModalType] = useState<"baudrate" | "databits">("baudrate");
   const [sending, setSending] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("COM");
   const [selectedCOM, setSelectedCOM] = useState<"COM 1" | "COM 2">("COM 1");
@@ -20,6 +21,10 @@ export default function PPCommandsScreen() {
   const [baudAction, setBaudAction] = useState<"Write" | "Read">("Read");
   const [baudValue, setBaudValue] = useState("");
   const [baudError, setBaudError] = useState("");
+  const [databitsModalVisible, setDatabitsModalVisible] = useState(false);
+  const [databitsAction, setDatabitsAction] = useState<"Write" | "Read">("Read");
+  const [databitsValue, setDatabitsValue] = useState("");
+  const [databitsError, setDatabitsError] = useState("");
   const ble = useBLEContext();
 
   // Command categories
@@ -66,7 +71,7 @@ export default function PPCommandsScreen() {
     value,
     rawCommand,
   }: {
-    type: "baudrate-write" | "baudrate-read" | "raw";
+    type: "baudrate-write" | "baudrate-read" | "databits-write" | "databits-read" | "raw";
     com?: "COM 1" | "COM 2";
     value?: number;
     rawCommand?: string;
@@ -100,6 +105,16 @@ export default function PPCommandsScreen() {
         // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x00, comByte, checksum, 0x03]
         const comByte = com === "COM 1" ? 0x01 : 0x02;
         arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x00, comByte];
+      } else if (type === "databits-write") {
+        // Write Databits: DDDD0202010200(data)checksum03
+        // [0xdd,0xdd,0x02,0x02,0x01,0x01,0x01, comByte, valueByte, checksum, 0x03]
+        const comByte = com === "COM 1" ? 0x01 : 0x02;
+        arr = [0xdd, 0xdd, 0x02, 0x02, 0x01, 0x01, 0x01, comByte, value ?? 0];
+      } else if (type === "databits-read") {
+        // Read Databits: DDDD0201000200(data)checksum03
+        // [0xdd,0xdd,0x02,0x01,0x00,0x01,0x01, comByte, checksum, 0x03]
+        const comByte = com === "COM 1" ? 0x01 : 0x02;
+        arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, 0x01, comByte];
       } else if (type === "raw" && rawCommand) {
         // For legacy commands, send as string
         await ble.sendTCommand(rawCommand);
@@ -186,6 +201,14 @@ export default function PPCommandsScreen() {
               <Text style={styles.baudrateButtonText}>Write/Read Baudrate</Text>
             </TouchableOpacity>
           </View>
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={styles.baudrateButton}
+              onPress={() => setDatabitsModalVisible(true)}
+            >
+              <Text style={styles.baudrateButtonText}>Write/Read Databits</Text>
+            </TouchableOpacity>
+          </View>
         </>
       )}
 
@@ -225,7 +248,10 @@ export default function PPCommandsScreen() {
                   <Text style={{ fontSize: 15, color: "#333" }}>Baudrate Value (0-7):</Text>
                   <TouchableOpacity
                     style={styles.helpButton}
-                    onPress={() => setHelpModalVisible(true)}
+                    onPress={() => {
+                      setHelpModalType("baudrate");
+                      setHelpModalVisible(true);
+                    }}
                     accessibilityLabel="Show baudrate value table"
                   >
                     <Ionicons name="help-circle-outline" size={22} color="#888" />
@@ -250,7 +276,7 @@ export default function PPCommandsScreen() {
                 {baudError ? <Text style={styles.errorText}>{baudError}</Text> : null}
               </View>
             )}
-      {/* Help modal for baudrate value table */}
+      {/* Help modal for baudrate/databits value table */}
       <Modal
         visible={helpModalVisible}
         transparent
@@ -259,14 +285,18 @@ export default function PPCommandsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { width: 320 }]}> 
-            <Text style={styles.modalTitle}>Baudrate Value Table</Text>
+            <Text style={styles.modalTitle}>
+              {helpModalType === "baudrate" ? "Baudrate Value Table" : "Databits Value Table"}
+            </Text>
             <View style={{ width: "100%", marginBottom: 12 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
                 <Text style={{ fontWeight: "bold", color: "#333" }}>Value</Text>
-                <Text style={{ fontWeight: "bold", color: "#333" }}>Baudrate</Text>
+                <Text style={{ fontWeight: "bold", color: "#333" }}>
+                  {helpModalType === "baudrate" ? "Baudrate" : "Meaning"}
+                </Text>
               </View>
               <View style={{ borderBottomWidth: 1, borderColor: "#eee", marginBottom: 6 }} />
-              {[
+              {helpModalType === "baudrate" ? [
                 { value: "0x00", baud: "1200" },
                 { value: "0x01", baud: "2400" },
                 { value: "0x02", baud: "4800" },
@@ -279,6 +309,14 @@ export default function PPCommandsScreen() {
                 <View key={row.value} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
                   <Text style={{ color: "#333" }}>{row.value}</Text>
                   <Text style={{ color: "#333" }}>{row.baud}</Text>
+                </View>
+              )) : [
+                { value: "0x00", meaning: "8 Bits" },
+                { value: "0x01", meaning: "9 Bits" },
+              ].map((row, idx) => (
+                <View key={row.value} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 2 }}>
+                  <Text style={{ color: "#333" }}>{row.value}</Text>
+                  <Text style={{ color: "#333" }}>{row.meaning}</Text>
                 </View>
               ))}
             </View>
@@ -332,6 +370,120 @@ export default function PPCommandsScreen() {
                   setBaudModalVisible(false);
                   setBaudValue("");
                   setBaudError("");
+                }}
+              >
+                <Text style={[styles.modalButtonText, { color: "#333" }]}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal for Write/Read Databits choice with toggles and input */}
+      <Modal
+        visible={databitsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDatabitsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Write/Read Databits</Text>
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleButton, databitsAction === "Read" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setDatabitsAction("Read");
+                  setDatabitsError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, databitsAction === "Read" && styles.toggleButtonTextActive]}>Read</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, databitsAction === "Write" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setDatabitsAction("Write");
+                  setDatabitsError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, databitsAction === "Write" && styles.toggleButtonTextActive]}>Write</Text>
+              </TouchableOpacity>
+            </View>
+            {databitsAction === "Write" && (
+              <View style={{ width: "100%", marginTop: 16 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 15, color: "#333" }}>Databits Value (0-1):</Text>
+                  <TouchableOpacity
+                    style={styles.helpButton}
+                    onPress={() => {
+                      setHelpModalType("databits");
+                      setHelpModalVisible(true);
+                    }}
+                    accessibilityLabel="Show databits value table"
+                  >
+                    <Ionicons name="help-circle-outline" size={22} color="#888" />
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    maxLength={1}
+                    value={databitsValue}
+                    onChangeText={(text: string) => {
+                      // Only allow 0-1
+                      if (/^[0-1]?$/.test(text)) {
+                        setDatabitsValue(text);
+                        setDatabitsError("");
+                      }
+                    }}
+                    placeholder="0-1"
+                  />
+                </View>
+                {databitsError ? <Text style={styles.errorText}>{databitsError}</Text> : null}
+              </View>
+            )}
+            <View style={{ flexDirection: "row", marginTop: 24, width: "100%", justifyContent: "space-between" }}>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginRight: 8 }]}
+                onPress={async () => {
+                  if (!ble || !ble.bleService) {
+                    setDatabitsError("Not connected");
+                    return;
+                  }
+                  try {
+                    if (databitsAction === "Write") {
+                      if (!databitsValue.match(/^[0-1]$/)) {
+                        setDatabitsError("Enter a value 0-1");
+                        return;
+                      }
+                      await sendPPCommand({ 
+                        type: "databits-write", 
+                        com: selectedCOM, 
+                        value: parseInt(databitsValue, 10) 
+                      });
+                    } else {
+                      await sendPPCommand({ 
+                        type: "databits-read", 
+                        com: selectedCOM 
+                      });
+                    }
+                    setDatabitsModalVisible(false);
+                    setDatabitsValue("");
+                    setDatabitsError("");
+                  } catch (e) {
+                    setDatabitsError((e as any).message || "Failed to send");
+                  }
+                }}
+              >
+                <Text style={styles.modalButtonText}>Confirm</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, { flex: 1, marginLeft: 8, backgroundColor: "#eee" }]}
+                onPress={() => {
+                  setDatabitsModalVisible(false);
+                  setDatabitsValue("");
+                  setDatabitsError("");
                 }}
               >
                 <Text style={[styles.modalButtonText, { color: "#333" }]}>Cancel</Text>
