@@ -1,8 +1,8 @@
 import React from "react";
 import {
-    StyleSheet,
-    Text,
-    View
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 
 interface ResponseSectionProps {
@@ -22,13 +22,20 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
 
     const responseStr = ppResponse;
     if (responseStr.startsWith("Response: ")) {
-      const hexResponse = responseStr.replace("Response: ", "");
+      const hexResponse = responseStr.replace("Response: ", "").replace(/\s+/g, "");
       
       // Convert hex string back to bytes for analysis
       const bytes: number[] = [];
       for (let i = 0; i < hexResponse.length; i += 2) {
-        bytes.push(parseInt(hexResponse.substr(i, 2), 16));
+        const hexByte = hexResponse.substr(i, 2);
+        const byte = parseInt(hexByte, 16);
+        if (!isNaN(byte)) {
+          bytes.push(byte);
+        }
       }
+      
+      // Check for ACK/NACK response
+      const ackNackInfo = parseAckNack(bytes);
       
       return (
         <View>
@@ -36,6 +43,16 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
           <Text style={styles.responseValue}>- Length: {bytes.length} bytes</Text>
           <Text style={styles.responseValue}>- Hex: {hexResponse}</Text>
           <Text style={styles.responseValue}>- Bytes: [{bytes.join(', ')}]</Text>
+          
+          {ackNackInfo && (
+            <>
+              <Text style={styles.responseLabel}>📩 Command Status:</Text>
+              <Text style={ackNackInfo.isAck ? styles.responseSuccess : styles.responseError}>
+                {ackNackInfo.isAck ? '✅ ACK' : '❌ NACK'} - {ackNackInfo.message}
+              </Text>
+              <Text style={styles.responseValue}>- Status Code: 0x{ackNackInfo.statusCode.toString(16).padStart(2, '0').toUpperCase()}</Text>
+            </>
+          )}
           
           {bytes.length > 0 && (
             <>
@@ -72,6 +89,76 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
       );
     } else {
       return <Text style={styles.responseText}>{responseStr}</Text>;
+    }
+  };
+
+  const parseAckNack = (bytes: number[]) => {
+    // Check if this is a write response with ACK/NACK
+    // Format: DDDD020300FD0000010043
+    // Position 6: FD (ACK/NACK indicator)
+    // Position 7: 00 (subkey for ACK/NACK)
+    // Position 8: Status code (00 = ACK, other values = NACK types)
+    if (bytes.length >= 9 && bytes[0] === 0xDD && bytes[1] === 0xDD && bytes[6] === 0xFD) {
+      const subkey = bytes[7];
+      const statusCode = bytes[8];
+      
+      console.log(`ACK/NACK parsing: FD at position 6, subkey: 0x${subkey.toString(16).padStart(2, '0').toUpperCase()}, status: 0x${statusCode.toString(16).padStart(2, '0').toUpperCase()}`);
+      
+      if (statusCode === 0x00) {
+        return {
+          isAck: true,
+          statusCode,
+          message: "Command executed successfully"
+        };
+      } else {
+        // NACK - determine the error type
+        const errorMessage = getNackMessage(statusCode);
+        return {
+          isAck: false,
+          statusCode,
+          message: errorMessage
+        };
+      }
+    }
+    
+    // Check for timeout (shorter message)
+    if (bytes.length < 9 && bytes[0] === 0xDD && bytes[1] === 0xDD) {
+      return {
+        isAck: false,
+        statusCode: 0x0B,
+        message: "Timeout - No response from device"
+      };
+    }
+    
+    return null;
+  };
+
+  const getNackMessage = (statusCode: number): string => {
+    switch (statusCode) {
+      case 0x01:
+        return "Generic error";
+      case 0x02:
+        return "Invalid key";
+      case 0x03:
+        return "Invalid subkey";
+      case 0x04:
+        return "Invalid data size";
+      case 0x05:
+        return "Invalid CRC";
+      case 0x06:
+        return "Invalid data";
+      case 0x07:
+        return "Device busy";
+      case 0x08:
+        return "Read only - Cannot write to this parameter";
+      case 0x09:
+        return "Write only - Cannot read from this parameter";
+      case 0x0A:
+        return "Hardware error";
+      case 0x0B:
+        return "Timeout";
+      default:
+        return `Unknown error (0x${statusCode.toString(16).padStart(2, '0').toUpperCase()})`;
     }
   };
 
