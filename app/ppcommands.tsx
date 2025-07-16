@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  FlatList,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -28,6 +29,12 @@ export default function PPCommandsScreen() {
   const [parityModalVisible, setParityModalVisible] = useState(false);
   const [stopbitsModalVisible, setStopbitsModalVisible] = useState(false);
   const [protocolModalVisible, setProtocolModalVisible] = useState(false);
+  
+  // Display modal states
+  const [brightnessDurationModalVisible, setBrightnessDurationModalVisible] = useState(false);
+  const [brightnessIntensityModalVisible, setBrightnessIntensityModalVisible] = useState(false);
+  const [brightnessMinweightModalVisible, setBrightnessMinweightModalVisible] = useState(false);
+  const [kgSymbolModalVisible, setKgSymbolModalVisible] = useState(false);
   
   // Frame state management
   const [frameStates, setFrameStates] = useState<FrameState>({
@@ -160,6 +167,27 @@ export default function PPCommandsScreen() {
         const comByte = com === "COM 1" ? 0x01 : 0x02;
         const subkey = frameSubkeys[frameType];
         arr = [0xdd, 0xdd, 0x02, 0x01, 0x00, 0x01, subkey, comByte];
+      } else if (type === "brightness-duration-write") {
+        // Write Brightness Duration: DDDD020101040(data)checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x01, 0x01, 0x04, 0x00, value ?? 0];
+      } else if (type === "brightness-duration-read") {
+        // Read Brightness Duration: DDDD020000040checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0x04, 0x00];
+      } else if (type === "brightness-intensity-write") {
+        // Write Brightness Intensity: DDDD020101041(data)checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x01, 0x01, 0x04, 0x01, value ?? 0];
+      } else if (type === "brightness-intensity-read") {
+        // Read Brightness Intensity: DDDD020000041checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0x04, 0x01];
+      } else if (type === "brightness-minweight-write") {
+        // Write Brightness Min Weight: DDDD020501042(data)checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x05, 0x01, 0x04, 0x02, value ?? 0];
+      } else if (type === "brightness-minweight-read") {
+        // Read Brightness Min Weight: DDDD020000042checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0x04, 0x02];
+      } else if (type === "kg-symbol-write") {
+        // Write KG Symbol: DDDD020101043(data)checksum03
+        arr = [0xdd, 0xdd, 0x02, 0x01, 0x01, 0x04, 0x03, value ?? 0];
       } else if (type === "raw" && rawCommand) {
         await ble.sendTCommand(rawCommand);
         setSending(false);
@@ -419,6 +447,55 @@ export default function PPCommandsScreen() {
     }
   };
 
+  // Display command handlers
+  const handleBrightnessDurationCommand = async (action: CommandAction, value?: string) => {
+    if (action === "Write" && value) {
+      await sendPPCommand({ 
+        type: "brightness-duration-write", 
+        value: parseInt(value, 10) 
+      });
+    } else {
+      await sendPPCommand({ 
+        type: "brightness-duration-read" 
+      });
+    }
+  };
+
+  const handleBrightnessIntensityCommand = async (action: CommandAction, value?: string) => {
+    if (action === "Write" && value) {
+      await sendPPCommand({ 
+        type: "brightness-intensity-write", 
+        value: parseInt(value, 10) 
+      });
+    } else {
+      await sendPPCommand({ 
+        type: "brightness-intensity-read" 
+      });
+    }
+  };
+
+  const handleBrightnessMinweightCommand = async (action: CommandAction, value?: string) => {
+    if (action === "Write" && value) {
+      await sendPPCommand({ 
+        type: "brightness-minweight-write", 
+        value: parseInt(value, 10) 
+      });
+    } else {
+      await sendPPCommand({ 
+        type: "brightness-minweight-read" 
+      });
+    }
+  };
+
+  const handleKgSymbolCommand = async (action: CommandAction, value?: string) => {
+    if (action === "Write" && value) {
+      await sendPPCommand({ 
+        type: "kg-symbol-write", 
+        value: parseInt(value, 10) 
+      });
+    }
+  };
+
   const showHelp = (type: HelpModalType) => {
     setHelpModalType(type);
     setHelpModalVisible(true);
@@ -430,15 +507,15 @@ export default function PPCommandsScreen() {
         <Text style={styles.title}>PP Commands</Text>
         
         {/* Category selector */}
-        <ScrollView
+        <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoryScroll}
           contentContainerStyle={styles.categoryScrollContent}
-        >
-          {categories.map((cat) => (
+          data={categories}
+          keyExtractor={(item) => item}
+          renderItem={({ item: cat }) => (
             <TouchableOpacity
-              key={cat}
               style={[
                 styles.categoryButton,
                 selectedCategory === cat && styles.categoryButtonActive,
@@ -454,8 +531,8 @@ export default function PPCommandsScreen() {
                 {cat}
               </Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+        />
 
       {/* COM section */}
       {selectedCategory === "COM" && (
@@ -573,8 +650,49 @@ export default function PPCommandsScreen() {
         </>
       )}
 
+      {/* Display section */}
+      {selectedCategory === "Display" && (
+        <>
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={styles.commandButton}
+              onPress={() => setBrightnessDurationModalVisible(true)}
+            >
+              <Text style={styles.commandButtonText}>Write/Read Brightness Duration</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={styles.commandButton}
+              onPress={() => setBrightnessIntensityModalVisible(true)}
+            >
+              <Text style={styles.commandButtonText}>Write/Read Brightness Intensity</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={styles.commandButton}
+              onPress={() => setBrightnessMinweightModalVisible(true)}
+            >
+              <Text style={styles.commandButtonText}>Write/Read Brightness Min Weight</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={{ marginBottom: 12 }}>
+            <TouchableOpacity
+              style={styles.commandButton}
+              onPress={() => setKgSymbolModalVisible(true)}
+            >
+              <Text style={styles.commandButtonText}>Set/Clear KG Symbol</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+
       {/* Other categories */}
-      {selectedCategory !== "COM" && (
+      {selectedCategory !== "COM" && selectedCategory !== "Display" && (
         <View style={styles.commandsContainer}>
           {filteredCommands.length === 0 ? (
             <Text style={{ textAlign: "center", color: "#888", marginTop: 20 }}>
@@ -654,6 +772,52 @@ export default function PPCommandsScreen() {
         validationPattern={/^[0-5]?$/}
         helpModalType="protocol"
         onShowHelp={showHelp}
+      />
+
+      {/* Display Modals */}
+      <CommandModal
+        visible={brightnessDurationModalVisible}
+        onClose={() => setBrightnessDurationModalVisible(false)}
+        onConfirm={handleBrightnessDurationCommand}
+        title="Write/Read Brightness Duration"
+        valueRange="0-5"
+        validationPattern={/^[0-5]?$/}
+        helpModalType="brightness-duration"
+        onShowHelp={showHelp}
+      />
+
+      <CommandModal
+        visible={brightnessIntensityModalVisible}
+        onClose={() => setBrightnessIntensityModalVisible(false)}
+        onConfirm={handleBrightnessIntensityCommand}
+        title="Write/Read Brightness Intensity"
+        valueRange="0-100"
+        validationPattern={/^([0-9]|[1-9][0-9]|100)?$/}
+        helpModalType="brightness-intensity"
+        onShowHelp={showHelp}
+      />
+
+      <CommandModal
+        visible={brightnessMinweightModalVisible}
+        onClose={() => setBrightnessMinweightModalVisible(false)}
+        onConfirm={handleBrightnessMinweightCommand}
+        title="Write/Read Brightness Min Weight"
+        valueRange="0-1"
+        validationPattern={/^[0-1]?$/}
+        helpModalType="brightness-minweight"
+        onShowHelp={showHelp}
+      />
+
+      <CommandModal
+        visible={kgSymbolModalVisible}
+        onClose={() => setKgSymbolModalVisible(false)}
+        onConfirm={handleKgSymbolCommand}
+        title="Set/Clear KG Symbol"
+        valueRange="0-1"
+        validationPattern={/^[0-1]?$/}
+        helpModalType="kg-symbol"
+        onShowHelp={showHelp}
+        writeOnly={true}
       />
 
       <HelpModal
@@ -789,7 +953,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   refreshButton: {
-    backgroundColor: "#007AFF",
+    backgroundColor: "#FF0000",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -804,7 +968,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   debugButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: "#FF0000",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,

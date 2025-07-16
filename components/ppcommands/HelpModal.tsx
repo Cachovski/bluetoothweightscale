@@ -1,10 +1,10 @@
 import React from "react";
 import {
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from "react-native";
 import { HelpModalType } from "./types";
 
@@ -53,6 +53,31 @@ export default function HelpModal({ visible, onClose, type }: HelpModalProps) {
           { value: "0x04", meaning: "Reserved" },
           { value: "0x05", meaning: "Reserved" },
         ];
+      case "brightness-duration":
+        return [
+          { value: "0x00", meaning: "OFF" },
+          { value: "0x01", meaning: "5 seconds" },
+          { value: "0x02", meaning: "10 seconds" },
+          { value: "0x03", meaning: "15 seconds" },
+          { value: "0x04", meaning: "20 seconds" },
+          { value: "0x05", meaning: "always ON" },
+        ];
+      case "brightness-intensity":
+        return [
+          { value: "0x00", meaning: "0%" },
+          { value: "0x64", meaning: "100%" },
+          { value: "...", meaning: "percentage (0-100)" },
+        ];
+      case "brightness-minweight":
+        return [
+          { value: "0x00", meaning: "OFF" },
+          { value: "0x01", meaning: "ON" },
+        ];
+      case "kg-symbol":
+        return [
+          { value: "0x00", meaning: "Clear Symbol" },
+          { value: "0x01", meaning: "Set Symbol" },
+        ];
       default:
         return [];
     }
@@ -70,13 +95,28 @@ export default function HelpModal({ visible, onClose, type }: HelpModalProps) {
         return "Stopbits Value Table";
       case "protocol":
         return "Protocol Value Table";
+      case "brightness-duration":
+        return "Brightness Duration Value Table";
+      case "brightness-intensity":
+        return "Brightness Intensity Value Table";
+      case "brightness-minweight":
+        return "Brightness Min Weight Value Table";
+      case "kg-symbol":
+        return "Set/Clear KG Symbol Value Table";
       default:
         return "Value Table";
     }
   };
 
   const getHeaderRight = () => {
-    return type === "baudrate" ? "Baudrate" : "Meaning";
+    switch (type) {
+      case "baudrate":
+        return "Baudrate";
+      case "brightness-intensity":
+        return "Percentage";
+      default:
+        return "Meaning";
+    }
   };
 
   const tableData = getTableData();

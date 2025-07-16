@@ -19,6 +19,7 @@ interface CommandModalProps {
   validationPattern: RegExp;
   helpModalType: HelpModalType;
   onShowHelp: (type: HelpModalType) => void;
+  writeOnly?: boolean;
 }
 
 export default function CommandModal({
@@ -30,8 +31,9 @@ export default function CommandModal({
   validationPattern,
   helpModalType,
   onShowHelp,
+  writeOnly = false,
 }: CommandModalProps) {
-  const [action, setAction] = useState<CommandAction>("Read");
+  const [action, setAction] = useState<CommandAction>("Write");
   const [value, setValue] = useState("");
   const [error, setError] = useState("");
 
@@ -43,12 +45,12 @@ export default function CommandModal({
 
   const handleConfirm = async () => {
     try {
-      if (action === "Write") {
+      if (action === "Write" || writeOnly) {
         if (!value.match(validationPattern)) {
           setError(`Enter a value ${valueRange}`);
           return;
         }
-        await onConfirm(action, value);
+        await onConfirm("Write", value);
       } else {
         await onConfirm(action);
       }
@@ -68,38 +70,31 @@ export default function CommandModal({
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>{title}</Text>
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              style={[styles.toggleButton, action === "Read" && styles.toggleButtonActive]}
-              onPress={() => {
-                setAction("Read");
-                setError("");
-              }}
-            >
-              <Text style={[styles.toggleButtonText, action === "Read" && styles.toggleButtonTextActive]}>Read</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.toggleButton, action === "Write" && styles.toggleButtonActive]}
-              onPress={() => {
-                setAction("Write");
-                setError("");
-              }}
-            >
-              <Text style={[styles.toggleButtonText, action === "Write" && styles.toggleButtonTextActive]}>Write</Text>
-            </TouchableOpacity>
-          </View>
-          {action === "Write" && (
+          {!writeOnly && (
+            <View style={styles.toggleRow}>
+              <TouchableOpacity
+                style={[styles.toggleButton, action === "Read" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setAction("Read");
+                  setError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, action === "Read" && styles.toggleButtonTextActive]}>Read</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, action === "Write" && styles.toggleButtonActive]}
+                onPress={() => {
+                  setAction("Write");
+                  setError("");
+                }}
+              >
+                <Text style={[styles.toggleButtonText, action === "Write" && styles.toggleButtonTextActive]}>Write</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {(action === "Write" || writeOnly) && (
             <View style={{ width: "100%", marginTop: 16 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6 }}>
-                <Text style={{ fontSize: 15, color: "#333" }}>{title} Value ({valueRange}):</Text>
-                <TouchableOpacity
-                  style={styles.helpButton}
-                  onPress={() => onShowHelp(helpModalType)}
-                  accessibilityLabel={`Show ${title.toLowerCase()} value table`}
-                >
-                  <Ionicons name="help-circle-outline" size={22} color="#888" />
-                </TouchableOpacity>
-              </View>
+              <Text style={{ fontSize: 15, color: "#333", marginBottom: 6 }}>{title} Value ({valueRange}):</Text>
               <View style={styles.inputRow}>
                 <TextInput
                   style={styles.input}
@@ -114,6 +109,13 @@ export default function CommandModal({
                   }}
                   placeholder={valueRange}
                 />
+                <TouchableOpacity
+                  style={styles.helpButton}
+                  onPress={() => onShowHelp(helpModalType)}
+                  accessibilityLabel={`Show ${title.toLowerCase()} value table`}
+                >
+                  <Ionicons name="help-circle-outline" size={22} color="#888" />
+                </TouchableOpacity>
               </View>
               {error ? <Text style={styles.errorText}>{error}</Text> : null}
             </View>
@@ -189,6 +191,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 40,
     width: 40,
+    marginLeft: 8,
   },
   errorText: {
     color: "#ff3333",
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 24,
-    width: 280,
+    width: "80%",
     alignItems: "center",
     elevation: 4,
   },
