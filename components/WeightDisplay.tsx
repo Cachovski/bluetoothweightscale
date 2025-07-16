@@ -48,6 +48,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 20,
     alignItems: "center",
+    minWidth: 300,
     ...Platform.select({
       ios: {
         shadowColor: "#000",

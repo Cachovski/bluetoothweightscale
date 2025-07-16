@@ -1,9 +1,11 @@
 import { Stack } from "expo-router";
 import { Drawer } from "expo-router/drawer";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity } from "react-native";
 import { BLEProvider, useBLEContext } from "../contexts/BLEContext";
 
 function NavigationLayout() {
-  const { isConnected } = useBLEContext();
+  const { isConnected, disconnectFromPeripheral } = useBLEContext();
 
   if (!isConnected) {
     // Show stack navigation when not connected (no drawer)
@@ -50,6 +52,7 @@ function NavigationLayout() {
   // Show drawer navigation when connected
   return (
     <Drawer
+      initialRouteName="rmessage"
       screenOptions={{
         headerStyle: {
           backgroundColor: "#ff0000",
@@ -71,27 +74,35 @@ function NavigationLayout() {
       }}
     >
       <Drawer.Screen
+        name="rmessage"
+        options={{
+          title: "Scale",
+          headerShown: true,
+          drawerLabel: "Scale",
+          headerRight: () => (
+            <TouchableOpacity 
+              onPress={() => disconnectFromPeripheral()}
+              style={styles.headerButton}
+            >
+              <Text style={styles.headerButtonText}>Disconnect</Text>
+            </TouchableOpacity>
+          ),
+        }}
+      />
+      <Drawer.Screen
         name="index"
         options={{
-          title: "Weight Scale",
+          title: "P Message",
           headerShown: true,
-          drawerLabel: "Weight Display",
+          drawerLabel: "P message",
         }}
       />
       <Drawer.Screen
         name="menu"
         options={{
-          title: "Commands",
+          title: "HTTP Commands",
           headerShown: true,
-          drawerLabel: "Commands",
-        }}
-      />
-      <Drawer.Screen
-        name="rmessage"
-        options={{
-          title: "Visor",
-          headerShown: true,
-          drawerLabel: "Visor Display",
+          drawerLabel: "HTTP Commands",
         }}
       />
       <Drawer.Screen
@@ -121,3 +132,18 @@ export default function RootLayout() {
     </BLEProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  headerButton: {
+    marginRight: 15,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: "#ffffff",
+    borderRadius: 5,
+  },
+  headerButtonText: {
+    color: "#ff0000",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+});

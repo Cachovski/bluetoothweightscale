@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Platform,
   ScrollView,
@@ -23,15 +24,17 @@ import { parseRMessage, RMessageData } from "../utils/sniProtocol";
 import { showErrorAlert, validateConnection } from "../utils/uiHelpers";
 
 export default function RMessage() {
-  const { bleService, isConnected, rMessageData, tMessageData, sendTCommand } =
+  const { bleService, isConnected, rMessageData, tMessageData, weightData, sendTCommand } =
     useBLEContext();
   const [localRMessage, setLocalRMessage] = useState<number[]>([]);
   const [localTMessage, setLocalTMessage] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Update when R message data changes
   useEffect(() => {
     if (rMessageData && rMessageData.length > 0) {
       setLocalRMessage(rMessageData);
+      setIsLoading(false); // Data is ready, stop loading
     }
   }, [rMessageData]);
 
@@ -41,6 +44,13 @@ export default function RMessage() {
       setLocalTMessage(tMessageData);
     }
   }, [tMessageData]);
+
+  // Reset loading state when connected status changes
+  useEffect(() => {
+    if (isConnected) {
+      setIsLoading(true); // Start loading when connected
+    }
+  }, [isConnected]);
 
   // Simple sequential combination states
   const [combinationMode, setCombinationMode] = useState(false);
@@ -304,26 +314,39 @@ export default function RMessage() {
 
   return (
     <View style={commonStyles.container}>
-      <ScrollView
-        style={commonStyles.contentContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={commonStyles.title}>Scale Visor Display</Text>
-        <Text style={commonStyles.subtitle}>Real-time R Message (DD03)</Text>
+      {isLoading ? (
+        // Loading screen
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#ff0000" />
+          <Text style={styles.loadingText}>Loading scale display...</Text>
+        </View>
+      ) : (
+        // Main content
+        <ScrollView
+          style={commonStyles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={commonStyles.title}>Scale Visor Display</Text>
+          <Text style={commonStyles.subtitle}>Real-time R, T and P Messages</Text>
 
-        {/* Main Visor Display */}
-        {localRMessage.length > 0 ? (
-          !parsedData.success ? (
-            <View style={commonStyles.errorContainer}>
-              <Text style={commonStyles.errorTitle}>Parse Error</Text>
-              <Text style={commonStyles.errorText}>{parsedData.error}</Text>
-            </View>
-          ) : (
-            <View style={commonStyles.visorContainer}>
-              {/* T Message Display (if available) */}
-              {tMessageDisplay && (
-                <View style={styles.tMessageRow}>
-                  <Text style={styles.tMessageText}>T: {tMessageDisplay}</Text>
+          {/* Main Visor Display */}
+          {localRMessage.length > 0 ? (
+            !parsedData.success ? (
+              <View style={commonStyles.errorContainer}>
+                <Text style={commonStyles.errorTitle}>Parse Error</Text>
+                <Text style={commonStyles.errorText}>{parsedData.error}</Text>
+              </View>
+            ) : (
+              <View style={commonStyles.visorContainer}>
+              {/* T Message and P Message Display (if available) */}
+              {(tMessageDisplay || weightData) && (
+                <View style={styles.messageRow}>
+                  {tMessageDisplay && (
+                    <Text style={styles.tMessageText}>T: {tMessageDisplay}</Text>
+                  )}
+                  {weightData && (
+                    <Text style={styles.pMessageText}>P: {weightData.weight} {weightData.unit}</Text>
+                  )}
                 </View>
               )}
 
@@ -341,7 +364,13 @@ export default function RMessage() {
               </View>
 
               <StatusIndicators
-                flags={createRMessageStatusFlags(parsedData.interpretation)}
+                flags={{
+                  ...createRMessageStatusFlags(parsedData.interpretation),
+                  // Add P message flags (non-duplicates)
+                  adcError: weightData?.hasADCError || false,
+                  minWeight: weightData?.isMinimum || false,
+                  negativeWeight: weightData?.isNegative || false,
+                }}
               />
             </View>
           )
@@ -442,11 +471,25 @@ export default function RMessage() {
           </View>
         </View>
       </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  // Loading screen styles
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8f9fa",
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+  },
   // Custom styles specific to this component
   displayTypeIndicator: {
     fontSize: 10,
@@ -540,7 +583,25 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: spacing.sm,
   },
+  messageRow: {
+    backgroundColor: "rgba(0,0,0,0.1)",
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.sm,
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.sm,
+  },
   tMessageText: {
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
+    fontSize: 14,
+    fontWeight: "bold",
+    color: colors.visorText,
+    letterSpacing: 1,
+  },
+  pMessageText: {
     fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
     fontSize: 14,
     fontWeight: "bold",

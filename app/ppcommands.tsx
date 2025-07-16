@@ -215,6 +215,9 @@ export default function PPCommandsScreen() {
       } else if (type === "buzzer-error-sound") {
         // Buzzer Error Sound: DDDD020001050103
         arr = [0xdd, 0xdd, 0x02, 0x00, 0x01, 0x05, 0x01];
+      } else if (type === "get-random-key") {
+        // Get Random Key: DDDD020000FE0003
+        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0xFE, 0x00];
       } else if (type === "raw" && rawCommand) {
         await ble.sendTCommand(rawCommand);
         setSending(false);
@@ -606,6 +609,11 @@ export default function PPCommandsScreen() {
     await sendPPCommand({ type: "buzzer-error-sound" });
   };
 
+  // Special Weight command handlers
+  const handleGetRandomKey = async () => {
+    await sendPPCommand({ type: "get-random-key" });
+  };
+
   const showHelp = (type: HelpModalType) => {
     setHelpModalType(type);
     setHelpModalVisible(true);
@@ -844,10 +852,25 @@ export default function PPCommandsScreen() {
           </>
         )}
 
+        {/* Special Configs section */}
+        {selectedCategory === "Special Configs" && (
+          <>
+            <View style={{ marginBottom: 12 }}>
+              <TouchableOpacity
+                style={styles.commandButton}
+                onPress={handleGetRandomKey}
+              >
+                <Text style={styles.commandButtonText}>Get Random Key</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
         {/* Other categories */}
         {selectedCategory !== "COM" &&
           selectedCategory !== "Display" &&
-          selectedCategory !== "Buzzer" && (
+          selectedCategory !== "Buzzer" &&
+          selectedCategory !== "Special Configs" && (
             <View style={styles.commandsContainer}>
               {filteredCommands.length === 0 ? (
                 <Text

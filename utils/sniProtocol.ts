@@ -23,9 +23,9 @@ export interface RMessageStatusFlags {
   stableWeight: boolean;   // Bit 6
   netWeight: boolean;      // Bit 5
   tare: boolean;           // Bit 4
-  isMinimum: boolean;      // Bit 3
-  isFixedTare: boolean;    // Bit 2
-  isNegative: boolean;     // Bit 1
+  staticTare: boolean;     // Bit 3
+  total: boolean;          // Bit 2
+  countingScale: boolean;  // Bit 1
   // Bit 0 is always 0
 }
 
@@ -135,13 +135,13 @@ export function parseRMessage(bytes: number[]): RMessageData {
  */
 function parseStatusByte(statusByte: number): RMessageStatusFlags {
   return {
-    zeroWeight: (statusByte & 0x80) !== 0,    // Bit 7
-    stableWeight: (statusByte & 0x40) !== 0,  // Bit 6
-    netWeight: (statusByte & 0x20) !== 0,     // Bit 5
-    tare: (statusByte & 0x10) !== 0,          // Bit 4
-    isMinimum: (statusByte & 0x08) !== 0,     // Bit 3
-    isFixedTare: (statusByte & 0x04) !== 0,   // Bit 2
-    isNegative: (statusByte & 0x02) !== 0,    // Bit 1
+    zeroWeight: (statusByte & 0x80) !== 0,      // Bit 7
+    stableWeight: (statusByte & 0x40) !== 0,    // Bit 6
+    netWeight: (statusByte & 0x20) !== 0,       // Bit 5
+    tare: (statusByte & 0x10) !== 0,            // Bit 4
+    staticTare: (statusByte & 0x08) !== 0,      // Bit 3
+    total: (statusByte & 0x04) !== 0,           // Bit 2
+    countingScale: (statusByte & 0x02) !== 0,   // Bit 1
     // Bit 0 is always 0
   };
 }
@@ -184,8 +184,8 @@ export function createRMessageStatusFlags(interpretation: RMessageStatusFlags | 
     stable: interpretation.stableWeight,
     net: interpretation.netWeight,
     tare: interpretation.tare,
-    minimum: interpretation.isMinimum,
-    fixedTare: interpretation.isFixedTare,
-    negative: interpretation.isNegative
+    staticTare: interpretation.staticTare,
+    total: interpretation.total,
+    countingScale: interpretation.countingScale
   };
 }

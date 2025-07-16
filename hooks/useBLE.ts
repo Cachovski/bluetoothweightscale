@@ -540,26 +540,25 @@ export const useBLE = () => {
             const isFixedTare = (statusByte & 0x20) !== 0;
             const hasADCError = (statusByte & 0x40) !== 0;
             
-            // Format the weight string to remove unnecessary leading zeros
+            // Format the weight string to ensure consistent decimal places and remove leading zeros
             let formattedWeight = weightString;
             try {
-              // Parse as float and convert back to string to remove leading zeros
+              // Parse as float to validate it's a number and remove leading zeros
               const weightValue = parseFloat(weightString);
               
-              // Handle special case of exactly 0
-              if (weightValue === 0) {
-                formattedWeight = "0";
-                
-                // If there's a decimal part in the original, preserve it
+              if (!isNaN(weightValue)) {
+                // Check if the original weight string has decimals
                 if (weightString.includes('.')) {
-                  const decimalPart = weightString.split('.')[1];
-                  if (decimalPart) {
-                    formattedWeight = `0.${decimalPart}`;
-                  }
+                  // Parse the number to remove leading zeros, then format to maintain decimal places
+                  const decimalPlaces = weightString.split('.')[1]?.length || 3;
+                  formattedWeight = weightValue.toFixed(Math.max(decimalPlaces, 3));
+                } else {
+                  // If no decimal point, add .000 for consistency
+                  formattedWeight = weightValue.toFixed(3);
                 }
               } else {
-                // Normal case - format without unnecessary leading zeros
-                formattedWeight = weightValue.toString();
+                // If parsing fails, keep original string
+                formattedWeight = weightString;
               }
             } catch (e) {
               console.error("Error formatting weight:", e);
@@ -571,7 +570,7 @@ export const useBLE = () => {
             
             // Update weight data state
             setWeightData({
-              weight: formattedWeight, // Use the formatted weight without leading zeros
+              weight: formattedWeight, // Use the formatted weight with consistent decimals
               unit: "kg", // Default unit, adjust if your scale provides the unit
               isStable,
               isTare,

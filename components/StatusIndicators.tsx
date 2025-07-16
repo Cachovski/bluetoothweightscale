@@ -5,13 +5,18 @@ import { RMessageStatusFlags } from '../utils/sniProtocol';
 
 interface StatusIndicatorsProps {
   flags: {
+    // R message flags
     zero?: boolean;
     stable?: boolean;
     net?: boolean;
     tare?: boolean;
-    minimum?: boolean;
-    fixedTare?: boolean;
-    negative?: boolean;
+    staticTare?: boolean;
+    total?: boolean;
+    countingScale?: boolean;
+    // P message flags (non-duplicates)
+    adcError?: boolean;
+    minWeight?: boolean;
+    negativeWeight?: boolean;
   };
 }
 
@@ -24,22 +29,27 @@ export function createRMessageStatusFlags(interpretation: RMessageStatusFlags | 
     stable: interpretation.stableWeight,
     net: interpretation.netWeight,
     tare: interpretation.tare,
-    minimum: interpretation.isMinimum,
-    fixedTare: interpretation.isFixedTare,
-    negative: interpretation.isNegative
+    staticTare: interpretation.staticTare,
+    total: interpretation.total,
+    countingScale: interpretation.countingScale
   };
 }
 
 export function StatusIndicators({ flags }: StatusIndicatorsProps) {
   // Define all possible status flags with their display labels
   const allFlags = [
+    // R message flags
     { id: 'zero', label: 'ZERO' },
     { id: 'stable', label: 'STABLE' },
     { id: 'net', label: 'NET' },
     { id: 'tare', label: 'TARE' },
-    { id: 'minimum', label: 'MIN' },
-    { id: 'fixedTare', label: 'FIX' },
-    { id: 'negative', label: 'NEG' },
+    { id: 'staticTare', label: 'STATIC' },
+    { id: 'total', label: 'TOTAL' },
+    { id: 'countingScale', label: 'COUNT' },
+    // P message flags (non-duplicates)
+    { id: 'adcError', label: 'ADC ERROR' },
+    { id: 'minWeight', label: 'MIN' },
+    { id: 'negativeWeight', label: 'NEG' },
   ];
   
   return (

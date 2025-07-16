@@ -2,14 +2,13 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react"; // Added useEffect and useRef
 import { Alert, Platform, StyleSheet, Text, View } from "react-native";
 import DisconnectedState from "../components/bluetooth/DisconnectedState";
-import { CustomButton } from "../components/CustomButton";
 import WeightDisplay from "../components/WeightDisplay";
 import { useBLEContext } from "../contexts/BLEContext";
 import {
-    borderRadius,
-    colors,
-    commonStyles,
-    spacing,
+  borderRadius,
+  colors,
+  commonStyles,
+  spacing,
 } from "../utils/commonStyles";
 
 export default function Index() {
@@ -85,7 +84,7 @@ export default function Index() {
           />
         </View>
       ) : (
-        /* Connected Screen - same as before */
+        /* Connected Screen - shows weight display only */
         <View style={styles.mainContent}>
           <View style={styles.weightDisplayContainer}>
             <WeightDisplay weightData={weightData} />
@@ -97,17 +96,6 @@ export default function Index() {
               {bleService?.peripheralId?.substring(0, 12) || "Unknown"}...
             </Text>
           </View>
-
-          {/* Spacer to push the disconnect button to the bottom */}
-          <View style={styles.flexSpacer}></View>
-
-          {/* ONLY the disconnect button remains */}
-          <CustomButton
-            title="Disconnect"
-            onPress={() => disconnectFromPeripheral()}
-            variant="secondary"
-            style={styles.actionButton}
-          />
         </View>
       )}
     </View>
