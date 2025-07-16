@@ -1,23 +1,23 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
-    Image,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import { CustomButton } from "../components/CustomButton";
 import {
-    createRMessageStatusFlags,
-    StatusIndicators,
+  createRMessageStatusFlags,
+  StatusIndicators,
 } from "../components/StatusIndicators";
 import { useBLEContext } from "../contexts/BLEContext";
 import {
-    borderRadius,
-    colors,
-    commonStyles,
-    spacing,
+  borderRadius,
+  colors,
+  commonStyles,
+  spacing,
 } from "../utils/commonStyles";
 import { parseRMessage, RMessageData } from "../utils/sniProtocol";
 import { showErrorAlert, validateConnection } from "../utils/uiHelpers";
@@ -369,8 +369,20 @@ export default function RMessage() {
           )}
         </View>
 
-        {/* Scalable button container with 2 rows of 3 buttons */}
+        {/* Scalable button container with TEST button and 2 rows of 3 buttons */}
         <View style={styles.ButtonsOuterContainer}>
+          {/* TEST button - separate from combination system */}
+          <View style={styles.TestButtonContainer}>
+            <CustomButton
+              variant="primary"
+              style={styles.TestButton}
+              onPressOut={() => sendCommand("<TEST>")}
+              disabled={!isConnected}
+            >
+              <Text style={styles.TestButtonText}>TEST</Text>
+            </CustomButton>
+          </View>
+
           {/* Top row - first 3 buttons */}
           <View style={styles.ButtonsContainer}>
             {buttonConfigs.slice(0, 3).map((config) => (
@@ -465,10 +477,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#323E48",
   },
   ButtonsOuterContainer: {
-    marginTop: spacing.lg,
+    marginTop: spacing.sm, // Reduced from spacing.lg
     paddingHorizontal: spacing.md,
     alignItems: "center", // Center outer container
     width: "100%",
+  },
+  TestButtonContainer: {
+    alignItems: "center",
+    marginBottom: spacing.md, // Reduced from spacing.lg
+    width: "100%",
+  },
+  TestButton: {
+    width: 120,
+    height: 50,
+    borderRadius: borderRadius.lg,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#ff0000", // Red background
+  },
+  TestButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "bold",
+    letterSpacing: 1,
   },
   ButtonsContainer: {
     flexDirection: "row",
@@ -479,10 +510,10 @@ const styles = StyleSheet.create({
   },
   // Fixed height container to prevent button displacement
   indicatorContainer: {
-    height: 50, // Fixed height
+    height: 40, // Reduced from 50
     justifyContent: "center",
     alignItems: "center",
-    marginTop: spacing.md,
+    marginTop: spacing.sm, // Reduced from spacing.md
   },
   combinationIndicator: {
     backgroundColor: "#3a4853ff",
