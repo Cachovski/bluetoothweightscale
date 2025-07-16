@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -424,36 +425,37 @@ export default function PPCommandsScreen() {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>PP Commands</Text>
-      
-      {/* Category selector */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoryScroll}
-        contentContainerStyle={styles.categoryScrollContent}
-      >
-        {categories.map((cat) => (
-          <TouchableOpacity
-            key={cat}
-            style={[
-              styles.categoryButton,
-              selectedCategory === cat && styles.categoryButtonActive,
-            ]}
-            onPress={() => setSelectedCategory(cat)}
-          >
-            <Text
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>PP Commands</Text>
+        
+        {/* Category selector */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoryScroll}
+          contentContainerStyle={styles.categoryScrollContent}
+        >
+          {categories.map((cat) => (
+            <TouchableOpacity
+              key={cat}
               style={[
-                styles.categoryButtonText,
-                selectedCategory === cat && styles.categoryButtonTextActive,
+                styles.categoryButton,
+                selectedCategory === cat && styles.categoryButtonActive,
               ]}
+              onPress={() => setSelectedCategory(cat)}
             >
-              {cat}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+              <Text
+                style={[
+                  styles.categoryButtonText,
+                  selectedCategory === cat && styles.categoryButtonTextActive,
+                ]}
+              >
+                {cat}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
 
       {/* COM section */}
       {selectedCategory === "COM" && (
@@ -659,7 +661,8 @@ export default function PPCommandsScreen() {
         onClose={() => setHelpModalVisible(false)}
         type={helpModalType}
       />
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
