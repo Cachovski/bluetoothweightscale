@@ -1,16 +1,16 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    FlatList,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useBLEContext } from "../contexts/BLEContext";
 
@@ -324,7 +324,7 @@ export default function MenuScreen() {
         ...prev,
       ]);
       await sendBMCommand(fullCommand);
-      console.log(`Command sent: ${fullCommand}`);
+      // console.log(`Command sent: ${fullCommand}`);
     } catch (error) {
       console.error(`Failed to send command: ${fullCommand}`, error);
       setResponses((prev) => [

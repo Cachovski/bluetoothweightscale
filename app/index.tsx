@@ -31,7 +31,7 @@ export default function Index() {
   useEffect(() => {
     // If we were connected before but now we're not, we got disconnected
     if (prevConnectedRef.current && !isConnected) {
-      console.log("❌ Bluetooth connection lost, returning to scan screen");
+      // console.log("❌ Bluetooth connection lost, returning to scan screen");
 
       try {
         // Force navigate to home screen, ignoring router state

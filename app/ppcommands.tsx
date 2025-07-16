@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
   FlatList,
   SafeAreaView,
@@ -67,11 +67,72 @@ export default function PPCommandsScreen() {
   const ble = useBLEContext();
 
   // Read all frame states when connected
-  useEffect(() => {
+ /* useEffect(() => {
     if (ble?.isConnected && ble?.bleService) {
       readAllFrameStates();
     }
   }, [ble?.isConnected, ble?.bleService]);
+
+  // Wait for a specific frame response with timeout
+  const waitForFrameResponse = async (frameType: FrameType, comPort: COMPort): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const maxAttempts = 10;
+      let attemptCount = 0;
+
+      const checkResponse = () => {
+        attemptCount++;
+        const response = ble.ppResponse;
+        
+        // console.log(`Waiting for ${frameType} ${comPort} response - Attempt ${attemptCount}/${maxAttempts}`);
+        
+        if (response && response.length > 0) {
+          // console.log(`Got response for ${frameType} ${comPort}:`, response);
+          
+          // Parse the response to get frame state
+          const frameEnabled = parseFrameResponse(response);
+          // console.log(`Parsed frame ${frameType} ${comPort} as:`, frameEnabled);
+
+          // Since we send only one command at a time, assume any response is for the command we sent
+          setFrameStates((prev) => {
+            const newState = {
+              ...prev,
+              [frameType]: {
+                ...prev[frameType],
+                [comPort]: frameEnabled,
+              },
+            };
+            // console.log(
+            //   `Updated frame states for ${frameType} ${comPort}:`,
+            //   newState[frameType]
+            // );
+            return newState;
+          });
+          
+          resolve();
+          return;
+        }
+
+        // If we haven't got a response yet, try again
+        if (attemptCount < maxAttempts) {
+          setTimeout(checkResponse, 500);
+        } else {
+          // console.log(`Timeout waiting for ${frameType} ${comPort} response after ${maxAttempts} attempts`);
+          // Set state to null (unknown) if we can't get a response
+          setFrameStates((prev) => ({
+            ...prev,
+            [frameType]: {
+              ...prev[frameType],
+              [comPort]: null,
+            },
+          }));
+          resolve(); // Resolve anyway to continue with other commands
+        }
+      };
+
+      // Start checking after initial delay
+      setTimeout(checkResponse, 800);
+    });
+  };
 
   const readFrameStatesForCOM = async (comPort: COMPort) => {
     if (!ble?.isConnected || !ble?.bleService) return;
@@ -89,8 +150,11 @@ export default function PPCommandsScreen() {
           frameType,
         });
 
-        // Small delay between commands to avoid overwhelming the device
-        await new Promise((resolve) => setTimeout(resolve, 100));
+        // Wait for this specific response before continuing
+        await waitForFrameResponse(frameType, comPort);
+
+        // Additional delay between commands to avoid overwhelming the device
+        await new Promise((resolve) => setTimeout(resolve, 300));
       } catch (error) {
         console.error(
           `Error reading ${frameType} frame for ${comPort}:`,
@@ -110,7 +174,7 @@ export default function PPCommandsScreen() {
     for (const comPort of comPorts) {
       await readFrameStatesForCOM(comPort);
     }
-  };
+  };*/
 
   const filteredCommands =
     selectedCategory === "COM"
@@ -217,7 +281,7 @@ export default function PPCommandsScreen() {
         arr = [0xdd, 0xdd, 0x02, 0x00, 0x01, 0x05, 0x01];
       } else if (type === "get-random-key") {
         // Get Random Key: DDDD020000FE0003
-        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0xFE, 0x00];
+        arr = [0xdd, 0xdd, 0x02, 0x00, 0x00, 0xfe, 0x00];
       } else if (type === "raw" && rawCommand) {
         await ble.sendTCommand(rawCommand);
         setSending(false);
@@ -232,102 +296,6 @@ export default function PPCommandsScreen() {
       const bytes = [...arr, checksum, 0x03];
 
       await ble.sendPPCommand(bytes);
-
-      // Parse response for frame read commands
-      if (type === "frame-read" && frameType && com) {
-        // Wait for response with multiple attempts
-        const checkResponse = (attempt: number = 1) => {
-          const response = ble.ppResponse;
-          console.log(
-            `Attempt ${attempt}: Checking response for ${frameType} ${com}`
-          );
-
-          if (response && response.length > 0) {
-            console.log(
-              `Frame read response for ${frameType} ${com}:`,
-              response
-            );
-
-            // Parse the response to get frame state
-            const frameEnabled = parseFrameResponse(response);
-            console.log(`Parsed frame ${frameType} ${com} as:`, frameEnabled);
-
-            // Verify the response is for the correct COM port
-            const cleanResponse = response
-              .replace(/^Response:\s*/, "")
-              .replace(/\s+/g, "");
-            const bytes: number[] = [];
-            for (let i = 0; i < cleanResponse.length; i += 2) {
-              const hexByte = cleanResponse.substr(i, 2);
-              const byte = parseInt(hexByte, 16);
-              if (!isNaN(byte)) {
-                bytes.push(byte);
-              }
-            }
-
-            // Check if the response is for the correct COM port
-            if (bytes.length >= 8) {
-              const responseCOM = bytes[7];
-              const expectedCOM = com === "COM 1" ? 0x01 : 0x02;
-
-              if (responseCOM === expectedCOM) {
-                console.log(`Response COM matches expected COM: ${com}`);
-
-                setFrameStates((prev) => {
-                  const newState = {
-                    ...prev,
-                    [frameType]: {
-                      ...prev[frameType],
-                      [com]: frameEnabled,
-                    },
-                  };
-                  console.log(
-                    `Updated frame states for ${frameType} ${com}:`,
-                    newState[frameType]
-                  );
-                  return newState;
-                });
-              } else {
-                console.log(
-                  `Response COM (0x${responseCOM.toString(
-                    16
-                  )}) doesn't match expected COM (0x${expectedCOM.toString(
-                    16
-                  )})`
-                );
-                // Try again as this might be a response for a different COM
-                if (attempt < 3) {
-                  setTimeout(() => checkResponse(attempt + 1), 500);
-                }
-              }
-            }
-          } else {
-            console.log(
-              `No response received for ${frameType} ${com} (attempt ${attempt})`
-            );
-
-            // Try again after a short delay, up to 3 attempts
-            if (attempt < 3) {
-              setTimeout(() => checkResponse(attempt + 1), 500);
-            } else {
-              console.log(
-                `Failed to get response for ${frameType} ${com} after 3 attempts`
-              );
-              // Set state to null (unknown) if we can't get a response
-              setFrameStates((prev) => ({
-                ...prev,
-                [frameType]: {
-                  ...prev[frameType],
-                  [com]: null,
-                },
-              }));
-            }
-          }
-        };
-
-        // Start checking after initial delay
-        setTimeout(() => checkResponse(1), 800);
-      }
     } catch (e: any) {
       alert(e.message || "Failed to send command");
     } finally {
@@ -339,14 +307,14 @@ export default function PPCommandsScreen() {
   const parseFrameResponse = (response: string): boolean => {
     // Parse response to find frame status
     try {
-      console.log("=== FRAME RESPONSE PARSING ===");
-      console.log("Raw response:", response);
+      // console.log("=== FRAME RESPONSE PARSING ===");
+      // console.log("Raw response:", response);
 
       // Remove "Response: " prefix if present and any spaces
       const cleanResponse = response
         .replace(/^Response:\s*/, "")
         .replace(/\s+/g, "");
-      console.log("Clean response (no spaces):", cleanResponse);
+      // console.log("Clean response (no spaces):", cleanResponse);
 
       // Convert hex string to byte array
       const bytes: number[] = [];
@@ -358,19 +326,19 @@ export default function PPCommandsScreen() {
         }
       }
 
-      console.log(
-        "Parsed bytes:",
-        bytes
-          .map((b) => `0x${b.toString(16).padStart(2, "0").toUpperCase()}`)
-          .join(" ")
-      );
-      console.log("Byte array:", bytes);
+      // console.log(
+      //   "Parsed bytes:",
+      //   bytes
+      //     .map((b) => `0x${b.toString(16).padStart(2, "0").toUpperCase()}`)
+      //     .join(" ")
+      // );
+      // console.log("Byte array:", bytes);
 
       if (bytes.length < 10) {
-        console.log(
-          "Response too short, expected at least 10 bytes, got:",
-          bytes.length
-        );
+        // console.log(
+        //   "Response too short, expected at least 10 bytes, got:",
+        //   bytes.length
+        // );
         return false;
       }
 
@@ -384,29 +352,29 @@ export default function PPCommandsScreen() {
       const frameStatus = bytes[8];
       const checksum = bytes[9];
 
-      console.log(
-        `COM Port: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`
-      );
-      console.log(
-        `Frame Status: 0x${frameStatus
-          .toString(16)
-          .padStart(2, "0")
-          .toUpperCase()}`
-      );
-      console.log(
-        `Checksum: 0x${checksum.toString(16).padStart(2, "0").toUpperCase()}`
-      );
+      // console.log(
+      //   `COM Port: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`
+      // );
+      // console.log(
+      //   `Frame Status: 0x${frameStatus
+      //     .toString(16)
+      //     .padStart(2, "0")
+      //     .toUpperCase()}`
+      // );
+      // console.log(
+      //   `Checksum: 0x${checksum.toString(16).padStart(2, "0").toUpperCase()}`
+      // );
 
       const isEnabled = frameStatus === 0x01;
-      console.log(
-        `Frame is ${
-          isEnabled
-            ? "ENABLED (0x01)"
-            : frameStatus === 0x00
-            ? "DISABLED (0x00)"
-            : "UNKNOWN"
-        }`
-      );
+      // console.log(
+      //   `Frame is ${
+      //     isEnabled
+      //       ? "ENABLED (0x01)"
+      //       : frameStatus === 0x00
+      //       ? "DISABLED (0x00)"
+      //       : "UNKNOWN"
+      //   }`
+      // );
 
       // Only return true if explicitly 0x01, false for 0x00 or anything else
       return isEnabled;
@@ -419,9 +387,9 @@ export default function PPCommandsScreen() {
 
   // Test function to manually parse a response string
   const testResponseParsing = (testResponse: string) => {
-    console.log("=== TESTING RESPONSE PARSING ===");
+    // console.log("=== TESTING RESPONSE PARSING ===");
     const result = parseFrameResponse(testResponse);
-    console.log(`Test result: ${result}`);
+    // console.log(`Test result: ${result}`);
     return result;
   };
 
@@ -740,7 +708,7 @@ export default function PPCommandsScreen() {
                   <TouchableOpacity
                     style={styles.debugButton}
                     onPress={() => {
-                      console.log("Testing response parsing...");
+                      // console.log("Testing response parsing...");
                       // Test with frame enabled for COM1
                       testResponseParsing("DDDD0202000107010138");
                       // Test with frame disabled for COM1
@@ -757,7 +725,7 @@ export default function PPCommandsScreen() {
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.refreshButton}
-                    onPress={() => readFrameStatesForCOM(selectedCOM)}
+                    //onPress={() => readFrameStatesForCOM(selectedCOM)}
                   >
                     <Text style={styles.refreshButtonText}>Refresh</Text>
                   </TouchableOpacity>

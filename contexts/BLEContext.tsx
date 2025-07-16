@@ -23,7 +23,7 @@ export const BLEProvider: React.FC<BLEProviderProps> = ({ children }) => {
         bleState.bleManager.isDeviceConnected(bleState.bleService.peripheralId)
           .then(isConnected => {
             if (!isConnected) {
-              console.log('Device disconnected while app was in background');
+              // console.log('Device disconnected while app was in background');
               bleState.setIsConnected(false);
             }
           })

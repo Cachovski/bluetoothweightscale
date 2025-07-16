@@ -1,7 +1,7 @@
 /**
  * SNI Scale Protocol Utility
  * 
- * Handles parsing of various message formats from BM1000 scale:
+ * Handles parsing of various message format      // cons        // console.log(`🔍 Added decimal point after position ${i+1} (estado: 0x${estado.toString(16)})`); le.log(`🔍 Position ${i+1}: digit='${digit}' (${displayChars[i]}), estado=${estado} (0x${estado.toString(16)}, binary: ${estado.toString(2).padStart(8, '0')})`);  from BM1000 scale:
  * - R Messages (display data)
  * - P Messages (weight data)
  * - T Messages (total weight data)

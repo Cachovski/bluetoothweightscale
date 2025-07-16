@@ -126,7 +126,7 @@ export const useBLE = () => {
   const startScan = useCallback(async () => {
     // Check if already scanning
     if (isScanning) {
-      console.log("Already scanning...");
+      // console.log("Already scanning...");
       return;
     }
     
@@ -143,7 +143,7 @@ export const useBLE = () => {
     
     // Start scanning
     try {
-      console.log("Starting scan...");
+      // console.log("Starting scan...");
       setIsScanning(true);
       
       // Scan for devices
@@ -182,10 +182,10 @@ export const useBLE = () => {
       
       // Stop scan after 10 seconds with explicit function
       const timeoutId = setTimeout(() => {
-        console.log("Scan timeout triggered");
+        // console.log("Scan timeout triggered");
         if (bleManager) {
           bleManager.stopDeviceScan();
-          console.log("Scan stopped by timeout");
+          // console.log("Scan stopped by timeout");
           setIsScanning(false);
         }
       }, 10000);
@@ -202,7 +202,7 @@ export const useBLE = () => {
   const stopScan = useCallback(() => {
     if (isScanning) {
       bleManager.stopDeviceScan();
-      console.log("Scan stopped");
+      // console.log("Scan stopped");
       setIsScanning(false);
     }
   }, [isScanning]);
@@ -210,17 +210,17 @@ export const useBLE = () => {
   // Connect to peripheral
   const connectToPeripheral = useCallback(async (peripheralId: string) => {
     try {
-      console.log(`Connecting to peripheral: ${peripheralId}`);
+      // console.log(`Connecting to peripheral: ${peripheralId}`);
       
       // Connect to device
       const device = await bleManager.connectToDevice(peripheralId);
-      console.log("Connected to device");
+      // console.log("Connected to device");
       
       // Request larger MTU for Android (iOS negotiates automatically)
       if (Platform.OS === 'android') {
         try {
           const mtu = await device.requestMTU(512);
-          console.log(`MTU set to: ${mtu} bytes`);
+          // console.log(`MTU set to: ${mtu} bytes`);
         } catch (mtuError) {
           console.warn("Could not set MTU to 512:", mtuError);
           // Continue anyway, might work with default MTU
@@ -229,11 +229,11 @@ export const useBLE = () => {
       
       // Discover services and characteristics
       const discoveredDevice = await device.discoverAllServicesAndCharacteristics();
-      console.log("Discovered services and characteristics");
+      // console.log("Discovered services and characteristics");
       
       // Get services
       const services = await discoveredDevice.services();
-      console.log("Services:", services.map(s => s.uuid));
+      // console.log("Services:", services.map(s => s.uuid));
       
       // Find our target service
       const targetService = services.find(service => 
@@ -246,7 +246,7 @@ export const useBLE = () => {
       
       // Get characteristics
       const characteristics = await targetService.characteristics();
-      console.log("Characteristics:", characteristics.map(c => c.uuid));
+      // console.log("Characteristics:", characteristics.map(c => c.uuid));
       
       // Set up BLE service
       setBleService({
@@ -260,7 +260,7 @@ export const useBLE = () => {
       
       // Set up device state change monitoring
       device.onDisconnected((error, device) => {
-        console.log("🔌 Device disconnected event triggered:", device?.id);
+        // console.log("🔌 Device disconnected event triggered:", device?.id);
         if (error) {
           console.error("Disconnection error:", error);
         }
@@ -277,7 +277,7 @@ export const useBLE = () => {
         setTMessageData([]);
         setJMessageData([]);
         
-        console.log("🔄 Connection state reset due to disconnection");
+        // console.log("🔄 Connection state reset due to disconnection");
       });
       
       // Update connected state
@@ -301,7 +301,7 @@ export const useBLE = () => {
     try {
       // Disconnect device (this will also stop notifications)
       await bleManager.cancelDeviceConnection(bleService.peripheralId);
-      console.log("Disconnected from device");
+      // console.log("Disconnected from device");
       
       // Update state
       setIsConnected(false);
@@ -385,7 +385,7 @@ export const useBLE = () => {
 
   // Handle characteristic value updates
   const handleUpdateValueForCharacteristic = (data: any) => {
-    console.log(`🔄 Processing notification from ${data.uuid}, data length: ${data.value?.length || 0}`);
+    // console.log(`🔄 Processing notification from ${data.uuid}, data length: ${data.value?.length || 0}`);
     
     // Helper function to check if this is a specific characteristic
     const isCharacteristic = (shortId: string) => {
@@ -395,7 +395,7 @@ export const useBLE = () => {
     if (data.value && Array.isArray(data.value)) {
       // J Message (DD05)
       if (isCharacteristic("dd05")) {
-        console.log("🔍 Processing dd05 J message data");
+        // console.log("🔍 Processing dd05 J message data");
         setJMessageData(data.value);
         return;
       }
@@ -448,26 +448,26 @@ export const useBLE = () => {
       }
       // R Message (Display data)
       if (isCharacteristic("dd03")) {
-        console.log("📊 Processing dd03 R message data");
+        // console.log("📊 Processing dd03 R message data");
         setRMessageData(data.value);
-        console.log("✅ R Message updated with byte array");
+        // console.log("✅ R Message updated with byte array");
         return;
       }
       // T Message (Total weight)
       else if (isCharacteristic("dd04")) {
-        console.log("📊 Processing dd04 T message data - raw bytes:", data.value);
-        console.log("📊 DD04 data as string:", String.fromCharCode(...data.value));
+        // console.log("📊 Processing dd04 T message data - raw bytes:", data.value);
+        // console.log("📊 DD04 data as string:", String.fromCharCode(...data.value));
         
         // Check if this looks like a command echo (starts with '<T' and ends with '>')
         const dataString = String.fromCharCode(...data.value);
         if (dataString.startsWith('<T') && dataString.endsWith('>')) {
-          console.log("⚠️ DD04 received command echo, ignoring:", dataString);
+          // console.log("⚠️ DD04 received command echo, ignoring:", dataString);
           return; // Don't process command echoes as T messages
         }
         
         // Pass the raw byte array directly - similar to R message
         setTMessageData(data.value);
-        console.log("✅ T Message updated with byte array");
+        // console.log("✅ T Message updated with byte array");
         
         return;
       }
@@ -484,8 +484,8 @@ export const useBLE = () => {
         }
         bracketCountRef.current = runningBracketCount;
         setAccumulatedResponse(bufferRef.current); // for UI display only
-        console.log(`📡 DD01 chunk: "${responseChunk.replace(/\n/g, '')}"`);
-        console.log(`🔄 Buffer length: ${bufferRef.current.length}, Bracket count: ${runningBracketCount}`);
+        // console.log(`📡 DD01 chunk: "${responseChunk.replace(/\n/g, '')}"`);
+        // console.log(`🔄 Buffer length: ${bufferRef.current.length}, Bracket count: ${runningBracketCount}`);
         // Only emit when bracket count returns to zero and at least one brace was seen
         if (runningBracketCount === 0 && bufferRef.current.includes('{')) {
           setCommandResponse({
@@ -496,9 +496,9 @@ export const useBLE = () => {
           bufferRef.current = "";
           bracketCountRef.current = 0;
           setAccumulatedResponse("");
-          console.log("✅ Complete response emitted to user");
+          // console.log("✅ Complete response emitted to user");
         } else {
-          console.log("🔄 Waiting for more chunks...");
+          // console.log("🔄 Waiting for more chunks...");
         }
         return;
       }

@@ -20,7 +20,7 @@ const DisconnectedState: React.FunctionComponent<DisconnectedStateProps> = ({
   useEffect(() => {
     // When isScanning changes from true to false, show a toast or console message
     if (prevIsScanning.current && !isScanning) {
-      console.log("Scan completed");
+      // console.log("Scan completed");
       // Optionally show user feedback that scan has completed
     }
     prevIsScanning.current = isScanning;

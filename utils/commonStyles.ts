@@ -219,7 +219,7 @@ export const commonStyles = StyleSheet.create({
     letterSpacing: 2,
   },
   visorDisplayText: {
-    fontSize: fontSize.huge,
+    fontSize: fontSize.massive,
     letterSpacing: 1,
   },
   

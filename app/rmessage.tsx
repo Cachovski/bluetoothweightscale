@@ -161,18 +161,18 @@ export default function RMessage() {
 
     // Skip if long press was already executed for THIS button
     if (longPressExecuted) {
-      console.log(
-        `🔄 Skipping pressOut for ${buttonId} because long press was executed`
-      );
+      // console.log(
+      //   `🔄 Skipping pressOut for ${buttonId} because long press was executed`
+      // );
       resetCombinationState(); // Always reset on pressOut
       return;
     }
 
     // Skip if a combination was already executed (for either button)
     if (combinationExecuted) {
-      console.log(
-        `🔄 Skipping pressOut for ${buttonId} because combination was executed`
-      );
+      // console.log(
+      //   `🔄 Skipping pressOut for ${buttonId} because combination was executed`
+      // );
       resetCombinationState(); // Always reset on pressOut
       return;
     }
@@ -184,7 +184,7 @@ export default function RMessage() {
       // Give user 1 second to press second button
       combinationTimeoutRef.current = setTimeout(() => {
         if (!combinationExecuted && !longPressExecuted) {
-          console.log(`⏰ Combination timeout - executing single ESC`);
+          // console.log(`⏰ Combination timeout - executing single ESC`);
           sendCommand(config.singleCommand);
         }
         resetCombinationState();
@@ -196,14 +196,14 @@ export default function RMessage() {
       resetCombinationState(); // Always reset on pressOut
     } else if (!combinationMode && !combinationExecuted) {
       // Normal single button press
-      console.log(`🔘 Normal button press: ${buttonId}`);
+      // console.log(`🔘 Normal button press: ${buttonId}`);
       sendCommand(config.singleCommand);
       resetCombinationState(); // Always reset on pressOut
     }
   };
 
   const handleButtonLongPress = (buttonId: string) => {
-    console.log(`🔄 Long press detected for: ${buttonId}`);
+    // console.log(`🔄 Long press detected for: ${buttonId}`);
 
     // Mark that long press was executed
     setLongPressExecuted(true);
@@ -213,12 +213,12 @@ export default function RMessage() {
 
     if (buttonId === "esc") {
       // ESC long press - cancel any pending combination and execute immediately
-      console.log(`🔄 ESC long press - executing ${config.longCommand}`);
+      // console.log(`🔄 ESC long press - executing ${config.longCommand}`);
       resetCombinationState();
       sendCommand(config.longCommand);
     } else if (combinationMode && !combinationExecuted) {
       // Long press combination - clear the timeout to prevent ESC short press
-      console.log(`🔄 Long press combination: ESC + ${buttonId}`);
+      // console.log(`🔄 Long press combination: ESC + ${buttonId}`);
       if (combinationTimeoutRef.current) {
         clearTimeout(combinationTimeoutRef.current);
         combinationTimeoutRef.current = null;
@@ -228,19 +228,19 @@ export default function RMessage() {
       // Don't reset state here - let pressOut handle it
     } else if (!combinationMode) {
       // Normal long press
-      console.log(`🔄 Normal long press - executing ${config.longCommand}`);
+      // console.log(`🔄 Normal long press - executing ${config.longCommand}`);
       sendCommand(config.longCommand);
     }
   };
 
   const sendCommand = async (command: string) => {
     // Add stack trace to see what's calling this function repeatedly
-    console.log(`🔧 sendCommand called with: ${command}`);
-    console.log(`🔧 Call stack:`, new Error().stack?.split("\n").slice(0, 5));
+    // console.log(`🔧 sendCommand called with: ${command}`);
+    // console.log(`🔧 Call stack:`, new Error().stack?.split("\n").slice(0, 5));
 
     // Check if we're actually connected before attempting to send
     if (!isConnected || !bleService?.peripheralId) {
-      console.log(`🚫 Not connected, skipping command: ${command}`);
+      // console.log(`🚫 Not connected, skipping command: ${command}`);
       return;
     }
 
@@ -249,9 +249,9 @@ export default function RMessage() {
     }
 
     try {
-      console.log(`🔧 Actually sending command ${command}`);
+      // console.log(`🔧 Actually sending command ${command}`);
       await sendTCommand(command);
-      console.log(`✅ Command sent: ${command}`);
+      // console.log(`✅ Command sent: ${command}`);
     } catch (error) {
       console.error(`❌ Command failed: ${command}`, error);
       // Don't show alert for disconnection errors to avoid spam
@@ -265,16 +265,16 @@ export default function RMessage() {
   const parseTMessage = (bytes: number[]): string => {
     // console.log("🔍 T Message raw bytes:", bytes, "Length:", bytes.length);
     if (!bytes || bytes.length < 2) {
-      console.log("❌ T Message too short");
+      // console.log("❌ T Message too short");
       return "";
     }
 
     if (bytes[0] !== 0x54) {
       // 0x54 is 'T' in ASCII
-      console.log(
-        "❌ T Message validation failed - first byte is not 'T', got:",
-        bytes[0]
-      );
+      // console.log(
+      //   "❌ T Message validation failed - first byte is not 'T', got:",
+      //   bytes[0]
+      // );
       return "";
     }
 
@@ -294,7 +294,7 @@ export default function RMessage() {
       const displayBytes = bytes.slice(1, endIndex);
       // console.log("🔍 T Message display bytes:", displayBytes);
       const displayText = String.fromCharCode(...displayBytes).trim();
-      console.log("✅ T Message parsed:", JSON.stringify(displayText));
+      // console.log("✅ T Message parsed:", JSON.stringify(displayText));
       return displayText;
     } catch (error) {
       console.error("Error parsing T message:", error);
@@ -305,7 +305,7 @@ export default function RMessage() {
   const parseRMessageLocal = (bytes: number[]): RMessageData => {
     // console.log("🔍 R Message raw bytes:", bytes);
     const result = parseRMessage(bytes);
-    console.log("✅ R Message parsed result:", result);
+    // console.log("✅ R Message parsed result:", result);
     return result;
   };
 
