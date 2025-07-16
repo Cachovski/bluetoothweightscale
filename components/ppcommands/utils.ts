@@ -35,8 +35,6 @@ export const categories = [
 export const ppCommands = [
   { title: "Metro 1", command: "metro_cmd_1", category: "Metro Configs" },
   { title: "Adjust 1", command: "adjust_cmd_1", category: "Adjust" },
-  { title: "Display 1", command: "display_cmd_1", category: "Display" },
-  { title: "Buzzer 1", command: "buzzer_cmd_1", category: "Buzzer" },
   {
     title: "Special 1",
     command: "special_cmd_1",

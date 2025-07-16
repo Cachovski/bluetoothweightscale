@@ -11,7 +11,7 @@ export interface PPCommand {
 }
 
 export interface SendPPCommandParams {
-  type: "baudrate-write" | "baudrate-read" | "databits-write" | "databits-read" | "parity-write" | "parity-read" | "stopbits-write" | "stopbits-read" | "protocol-write" | "protocol-read" | "frame-write" | "frame-read" | "brightness-duration-write" | "brightness-duration-read" | "brightness-intensity-write" | "brightness-intensity-read" | "brightness-minweight-write" | "brightness-minweight-read" | "kg-symbol-write" | "raw";
+  type: "baudrate-write" | "baudrate-read" | "databits-write" | "databits-read" | "parity-write" | "parity-read" | "stopbits-write" | "stopbits-read" | "protocol-write" | "protocol-read" | "frame-write" | "frame-read" | "brightness-duration-write" | "brightness-duration-read" | "brightness-intensity-write" | "brightness-intensity-read" | "brightness-minweight-write" | "brightness-minweight-read" | "kg-symbol-write" | "buzzer-right-sound" | "buzzer-error-sound" | "raw";
   com?: COMPort;
   value?: number;
   rawCommand?: string;
