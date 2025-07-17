@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   ScrollView,
@@ -66,70 +66,273 @@ export default function PPCommandsScreen() {
   const ble = useBLEContext();
 
   // Read all frame states when connected
- /* useEffect(() => {
+  useEffect(() => {
     if (ble?.isConnected && ble?.bleService) {
       readAllFrameStates();
     }
   }, [ble?.isConnected, ble?.bleService]);
 
-  // Wait for a specific frame response with timeout
-  const waitForFrameResponse = async (frameType: FrameType, comPort: COMPort): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const maxAttempts = 10;
-      let attemptCount = 0;
+  // Parse frame response and validate it matches expected frame type and COM port
+  const parseAndValidateFrameResponse = (
+    response: string,
+    expectedFrameType: FrameType,
+    expectedComPort: COMPort
+  ): { isValid: boolean; isEnabled: boolean } => {
+    try {
+      // Remove "Response: " prefix if present and any spaces
+      const cleanResponse = response
+        .replace(/^Response:\s*/, "")
+        .replace(/\s+/g, "");
 
-      const checkResponse = () => {
-        attemptCount++;
-        const response = ble.ppResponse;
-        
-        // console.log(`Waiting for ${frameType} ${comPort} response - Attempt ${attemptCount}/${maxAttempts}`);
-        
-        if (response && response.length > 0) {
-          // console.log(`Got response for ${frameType} ${comPort}:`, response);
-          
-          // Parse the response to get frame state
-          const frameEnabled = parseFrameResponse(response);
-          // console.log(`Parsed frame ${frameType} ${comPort} as:`, frameEnabled);
-
-          // Since we send only one command at a time, assume any response is for the command we sent
-          setFrameStates((prev) => {
-            const newState = {
-              ...prev,
-              [frameType]: {
-                ...prev[frameType],
-                [comPort]: frameEnabled,
-              },
-            };
-            // console.log(
-            //   `Updated frame states for ${frameType} ${comPort}:`,
-            //   newState[frameType]
-            // );
-            return newState;
-          });
-          
-          resolve();
-          return;
+      // Convert hex string to byte array
+      const bytes: number[] = [];
+      for (let i = 0; i < cleanResponse.length; i += 2) {
+        const hexByte = cleanResponse.substr(i, 2);
+        const byte = parseInt(hexByte, 16);
+        if (!isNaN(byte)) {
+          bytes.push(byte);
         }
+      }
 
-        // If we haven't got a response yet, try again
-        if (attemptCount < maxAttempts) {
-          setTimeout(checkResponse, 500);
-        } else {
-          // console.log(`Timeout waiting for ${frameType} ${comPort} response after ${maxAttempts} attempts`);
-          // Set state to null (unknown) if we can't get a response
-          setFrameStates((prev) => ({
+      if (bytes.length < 11) {
+        return { isValid: false, isEnabled: false };
+      }
+
+      // Parse the response structure
+      const subkey = bytes[6];
+      const comPort = bytes[7];
+      const frameStatus = bytes[8];
+
+      // Get expected subkey for the frame type
+      const expectedSubkey = frameSubkeys[expectedFrameType];
+      const expectedComByte = expectedComPort === "COM 1" ? 0x01 : 0x02;
+
+      // Validate that this response matches what we're expecting
+      const isValid = subkey === expectedSubkey && comPort === expectedComByte;
+      const isEnabled = frameStatus === 0x01;
+
+      /*console.log(`=== FRAME VALIDATION ===`);
+      console.log(
+        `Expected: ${expectedFrameType} (0x${expectedSubkey
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}) ${expectedComPort} (0x${expectedComByte
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()})`
+      );
+      console.log(
+        `Received: Subkey 0x${subkey
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}, COM 0x${comPort
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}, Status 0x${frameStatus
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}`
+      );
+      console.log(`Valid: ${isValid}, Enabled: ${isEnabled}`);*/
+
+      return { isValid, isEnabled };
+    } catch (error) {
+      console.error("Error parsing/validating frame response:", error);
+      return { isValid: false, isEnabled: false };
+    }
+  };
+
+  // Parse frame response and determine which frame type it is
+  const parseFrameResponseGeneric = (
+    response: string,
+    expectedComPort: COMPort
+  ): { isValid: boolean; isEnabled: boolean; frameType: FrameType | null } => {
+    try {
+      //console.log(`🔍 parseFrameResponseGeneric called with response: ${response}, expectedComPort: ${expectedComPort}`);
+      
+      // Remove "Response: " prefix if present and any spaces
+      const cleanResponse = response
+        .replace(/^Response:\s*/, "")
+        .replace(/\s+/g, "");
+
+      //console.log(`🔍 Clean response: ${cleanResponse}`);
+
+      // Convert hex string to byte array
+      const bytes: number[] = [];
+      for (let i = 0; i < cleanResponse.length; i += 2) {
+        const hexByte = cleanResponse.substr(i, 2);
+        const byte = parseInt(hexByte, 16);
+        if (!isNaN(byte)) {
+          bytes.push(byte);
+        }
+      }
+
+      //console.log(`🔍 Parsed bytes: [${bytes.join(', ')}]`);
+
+      if (bytes.length < 11) {
+        //console.log(`🔍 Response too short: ${bytes.length} bytes`);
+        return { isValid: false, isEnabled: false, frameType: null };
+      }
+
+      // Parse the response structure
+      const subkey = bytes[6];
+      const comPort = bytes[7];
+      const frameStatus = bytes[8];
+
+      //console.log(`🔍 Subkey: 0x${subkey.toString(16).padStart(2, "0").toUpperCase()}`);
+      //console.log(`🔍 COM Port: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`);
+      //console.log(`🔍 Frame Status: 0x${frameStatus.toString(16).padStart(2, "0").toUpperCase()}`);
+
+      const expectedComByte = expectedComPort === "COM 1" ? 0x01 : 0x02;
+      //console.log(`🔍 Expected COM byte: 0x${expectedComByte.toString(16).padStart(2, "0").toUpperCase()}`);
+
+      // Check if COM port matches
+      if (comPort !== expectedComByte) {
+        //console.log(`🔍 COM port mismatch! Expected: 0x${expectedComByte.toString(16).padStart(2, "0").toUpperCase()}, Got: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`);
+        return { isValid: false, isEnabled: false, frameType: null };
+      }
+
+      // Find which frame type this subkey belongs to
+      const frameType = Object.keys(frameSubkeys).find(
+        (key) => frameSubkeys[key as FrameType] === subkey
+      ) as FrameType | undefined;
+
+      //console.log(`Looking for subkey 0x${subkey.toString(16).padStart(2, "0").toUpperCase()} in frameSubkeys:`, frameSubkeys);
+      //console.log(`Found frame type: ${frameType}`);
+
+      if (!frameType) {
+        //console.log(`❌ No frame type found for subkey 0x${subkey.toString(16).padStart(2, "0").toUpperCase()}`);
+        return { isValid: false, isEnabled: false, frameType: null };
+      }
+
+      const isEnabled = frameStatus === 0x01;
+
+      /*console.log(`=== GENERIC FRAME PARSING ===`);
+      console.log(
+        `Received: Frame ${frameType} (0x${subkey
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}) ${expectedComPort} (0x${expectedComByte
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}), Status 0x${frameStatus
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}`
+      );
+      console.log(`Frame ${frameType} is ${isEnabled ? "ENABLED" : "DISABLED"}`);*/
+
+      return { isValid: true, isEnabled, frameType };
+    } catch (error) {
+      console.error("Error parsing generic frame response:", error);
+      return { isValid: false, isEnabled: false, frameType: null };
+    }
+  };
+
+  // Store the current response listener
+  const [currentResponseListener, setCurrentResponseListener] = useState<{
+    frameType: FrameType;
+    comPort: COMPort;
+    resolve: (value: void | PromiseLike<void>) => void;
+    startTime: number; // Track when we started waiting
+  } | null>(null);
+
+  // Track the last processed response to avoid processing the same response twice
+  const [lastProcessedResponse, setLastProcessedResponse] = useState<string | null>(null);
+
+  // Effect to listen for PP responses and match them to the current frame request
+  useEffect(() => {
+    if (currentResponseListener && ble.ppResponse && ble.ppResponse !== lastProcessedResponse) {
+      const { frameType, comPort, resolve, startTime } = currentResponseListener;
+
+      // Only process responses that arrived after we started waiting
+      const responseTime = Date.now();
+      if (responseTime < startTime) {
+        //console.log(`⏰ Ignoring old response for ${frameType} ${comPort}`);
+        return;
+      }
+
+      /*console.log(
+        `Got response while waiting for ${frameType} ${comPort}:`,
+        ble.ppResponse
+      );*/
+
+      // Mark this response as processed
+      setLastProcessedResponse(ble.ppResponse);
+
+      // Parse and validate the response
+      const validation = parseAndValidateFrameResponse(
+        ble.ppResponse,
+        frameType,
+        comPort
+      );
+
+      if (validation.isValid) {
+        console.log(
+          `✅ Valid response for ${frameType} ${comPort}: ${
+            validation.isEnabled ? "ENABLED" : "DISABLED"
+          }`
+        );
+
+        // Update the state with the validated result
+        setFrameStates((prev) => {
+          const newState = {
             ...prev,
             [frameType]: {
               ...prev[frameType],
-              [comPort]: null,
+              [comPort]: validation.isEnabled,
             },
-          }));
-          resolve(); // Resolve anyway to continue with other commands
-        }
-      };
+          };
+          //console.log(`Updated frame states for ${frameType} ${comPort}:`, newState[frameType]);
+          return newState;
+        });
 
-      // Start checking after initial delay
-      setTimeout(checkResponse, 800);
+        // Clear the listener and resolve
+        setCurrentResponseListener(null);
+        resolve();
+      } else {
+        console.log(`❌ Invalid response for ${frameType} ${comPort}, continuing to wait...`);
+      }
+    }
+  }, [ble.ppResponse, currentResponseListener, lastProcessedResponse]);
+
+  // Wait for a specific frame response with 1 second timeout
+  const waitForFrameResponse = async (
+    frameType: FrameType,
+    comPort: COMPort
+  ): Promise<void> => {
+    return new Promise((resolve) => {
+      //console.log(`Setting up listener for ${frameType} ${comPort}`);
+
+      // Set up the response listener with current timestamp
+      setCurrentResponseListener({ frameType, comPort, resolve, startTime: Date.now() });
+
+      // Set timeout to clear listener and resolve after 1 second
+      setTimeout(() => {
+        setCurrentResponseListener((current) => {
+          if (
+            current &&
+            current.frameType === frameType &&
+            current.comPort === comPort
+          ) {
+            //console.log(`⏰ Timeout waiting for ${frameType} ${comPort} response after 1 second`);
+
+            // Set state to null (unknown) if we can't get a response
+            setFrameStates((prev) => ({
+              ...prev,
+              [frameType]: {
+                ...prev[frameType],
+                [comPort]: null,
+              },
+            }));
+
+            // Clear listener and resolve
+            resolve();
+            return null;
+          }
+          return current;
+        });
+      }, 1000);
     });
   };
 
@@ -143,17 +346,78 @@ export default function PPCommandsScreen() {
       setLoadingFrames((prev) => ({ ...prev, [key]: true }));
 
       try {
+        // Send the command
         await sendPPCommand({
           type: "frame-read",
           com: comPort,
           frameType,
         });
 
-        // Wait for this specific response before continuing
-        await waitForFrameResponse(frameType, comPort);
+        // Wait for new response using callback mechanism
+        await new Promise<void>((resolve) => {
+          let responseReceived = false;
+          
+          //console.log(`🔍 Setting up callback for ${frameType} ${comPort}`);
+          
+          // Set up callback to receive response immediately when BLE handler gets it
+          ble.setPPResponseCallback((response: string) => {
+            if (responseReceived) {
+              console.log(`🔍 Callback called but already processed for ${frameType} ${comPort}`);
+              return;
+            }
+            
+            responseReceived = true;
+            //console.log(`📥 Callback received response for ${frameType} ${comPort}: ${response}`);
+            
+            // Parse the response to determine which frame it's for
+            const parsedResponse = parseFrameResponseGeneric(response, comPort);
+            
+            if (parsedResponse.isValid && parsedResponse.frameType) {
+              //console.log(`✅ Valid response for frame ${parsedResponse.frameType} ${comPort}: ${parsedResponse.isEnabled ? "ENABLED" : "DISABLED"}`);
+              
+              // Update the state for the actual frame type received
+              const receivedFrameType = parsedResponse.frameType;
+             //console.log(`🔄 Updating state for frame ${receivedFrameType} ${comPort} to ${parsedResponse.isEnabled}`);
+              
+              setFrameStates((prev) => {
+                //console.log(`🔄 Previous state for ${receivedFrameType}:`, prev[receivedFrameType]);
+                
+                const newState = {
+                  ...prev,
+                  [receivedFrameType]: {
+                    ...prev[receivedFrameType],
+                    [comPort]: parsedResponse.isEnabled,
+                  },
+                };
+                
+                //console.log(`🔄 New state for ${receivedFrameType}:`, newState[receivedFrameType]);
+                return newState;
+              });
+              
+              // Clear callback and resolve
+              ble.setPPResponseCallback(null);
+              resolve();
+            } else {
+              //console.log(`❌ Invalid response for ${frameType} ${comPort}: ${response}`);
+              //console.log(`❌ parsedResponse.isValid: ${parsedResponse.isValid}, parsedResponse.frameType: ${parsedResponse.frameType}`);
+              // Still resolve even if invalid to move to next frame
+              ble.setPPResponseCallback(null);
+              resolve();
+            }
+          });
+          
+          // Add a timeout as backup (30 seconds)
+          setTimeout(() => {
+            if (!responseReceived) {
+              //console.log(`⏰ Timeout reached for ${frameType} ${comPort}, clearing callback`);
+              ble.setPPResponseCallback(null);
+              resolve();
+            }
+          }, 2000);
+        });
 
-        // Additional delay between commands to avoid overwhelming the device
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // Short delay between commands
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error(
           `Error reading ${frameType} frame for ${comPort}:`,
@@ -173,7 +437,7 @@ export default function PPCommandsScreen() {
     for (const comPort of comPorts) {
       await readFrameStatesForCOM(comPort);
     }
-  };*/
+  };
 
   const filteredCommands =
     selectedCategory === "COM"
@@ -302,18 +566,17 @@ export default function PPCommandsScreen() {
     }
   }
 
-  // Parse frame response to determine if frame is enabled
+  // Parse frame response to determine if frame is enabled (used for manual testing)
   const parseFrameResponse = (response: string): boolean => {
-    // Parse response to find frame status
     try {
-      // console.log("=== FRAME RESPONSE PARSING ===");
-      // console.log("Raw response:", response);
+      //console.log("=== FRAME RESPONSE PARSING ===");
+      //console.log("Raw response:", response);
 
       // Remove "Response: " prefix if present and any spaces
       const cleanResponse = response
         .replace(/^Response:\s*/, "")
         .replace(/\s+/g, "");
-      // console.log("Clean response (no spaces):", cleanResponse);
+      //console.log("Clean response (no spaces):", cleanResponse);
 
       // Convert hex string to byte array
       const bytes: number[] = [];
@@ -325,63 +588,67 @@ export default function PPCommandsScreen() {
         }
       }
 
-      // console.log(
-      //   "Parsed bytes:",
-      //   bytes
-      //     .map((b) => `0x${b.toString(16).padStart(2, "0").toUpperCase()}`)
-      //     .join(" ")
-      // );
-      // console.log("Byte array:", bytes);
+      //console.log(
+      //  "Parsed bytes:",
+      //  bytes
+      //    .map((b) => `0x${b.toString(16).padStart(2, "0").toUpperCase()}`)
+      //    .join(" ")
+      //);
+      //console.log("Byte array:", bytes);
 
-      if (bytes.length < 10) {
-        // console.log(
-        //   "Response too short, expected at least 10 bytes, got:",
-        //   bytes.length
-        // );
+      if (bytes.length < 11) {
+        console.log(
+          "Response too short, expected at least 11 bytes, got:",
+          bytes.length
+        );
         return false;
       }
 
-      // Expected format: DDDD0202000107010138
-      // [DD DD 02 02 00 01 07 01 01 38]
+      // Expected format: DDDD020200010901003703
+      // [DD DD 02 02 00 01 09 01 00 37 03]
+      // Position 6: Subkey (frame type - 09 = Z frame)
       // Position 7: COM port (01 = COM1, 02 = COM2)
       // Position 8: Frame enabled status (01 = enabled, 00 = disabled)
       // Position 9: Checksum
+      // Position 10: End marker (03)
 
+      const subkey = bytes[6];
       const comPort = bytes[7];
       const frameStatus = bytes[8];
       const checksum = bytes[9];
 
-      // console.log(
-      //   `COM Port: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`
-      // );
-      // console.log(
-      //   `Frame Status: 0x${frameStatus
-      //     .toString(16)
-      //     .padStart(2, "0")
-      //     .toUpperCase()}`
-      // );
-      // console.log(
-      //   `Checksum: 0x${checksum.toString(16).padStart(2, "0").toUpperCase()}`
-      // );
+      /*console.log(
+        `Subkey: 0x${subkey.toString(16).padStart(2, "0").toUpperCase()}`
+      );
+      console.log(
+        `COM Port: 0x${comPort.toString(16).padStart(2, "0").toUpperCase()}`
+      );
+      console.log(
+        `Frame Status: 0x${frameStatus
+          .toString(16)
+          .padStart(2, "0")
+          .toUpperCase()}`
+      );
+      console.log(
+        `Checksum: 0x${checksum.toString(16).padStart(2, "0").toUpperCase()}`
+      );*/
 
       const isEnabled = frameStatus === 0x01;
-      // console.log(
-      //   `Frame is ${
-      //     isEnabled
-      //       ? "ENABLED (0x01)"
-      //       : frameStatus === 0x00
-      //       ? "DISABLED (0x00)"
-      //       : "UNKNOWN"
-      //   }`
-      // );
+      /*console.log(
+        `Frame is ${
+          isEnabled
+            ? "ENABLED (0x01)"
+            : frameStatus === 0x00
+            ? "DISABLED (0x00)"
+            : "UNKNOWN"
+        }`
+      );*/
 
-      // Only return true if explicitly 0x01, false for 0x00 or anything else
       return isEnabled;
     } catch (error) {
       console.error("Error parsing frame response:", error);
+      return false;
     }
-
-    return false; // Default to disabled if we can't parse
   };
 
   // Test function to manually parse a response string

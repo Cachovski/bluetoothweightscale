@@ -81,6 +81,9 @@ export const useBLE = () => {
   const bracketCountRef = useRef(0);
   const [responseTimeout, setResponseTimeout] = useState<number | null>(null);
   const [notificationsReady, setNotificationsReady] = useState<boolean>(false);
+  
+  // Callback for PP response processing
+  const ppResponseCallbackRef = useRef<((response: string) => void) | null>(null);
 
   // Request permissions
   const requestPermissions = useCallback(async () => {
@@ -448,7 +451,16 @@ export const useBLE = () => {
           }
         }
         
-        setPPResponse(`Response: ${hexResponse}`);
+        const responseString = `Response: ${hexResponse}`;
+        setPPResponse(responseString);
+        console.log("📩 ✅ setPPResponse called with:", responseString);
+        
+        // Call the callback immediately with the fresh response
+        if (ppResponseCallbackRef.current) {
+          console.log("📩 ✅ Calling PP response callback with:", responseString);
+          ppResponseCallbackRef.current(responseString);
+        }
+        
         console.log("📩 ============================================");
         return;
       }
@@ -814,6 +826,11 @@ export const useBLE = () => {
     };
   }, [bleService]);
 
+  // Set PP response callback
+  const setPPResponseCallback = useCallback((callback: ((response: string) => void) | null) => {
+    ppResponseCallbackRef.current = callback;
+  }, []);
+
   // Return the hook API
   return {
     isScanning,
@@ -838,6 +855,7 @@ export const useBLE = () => {
     sendPPCommand,
     checkConnectionHealth,
     setIsConnected,
+    setPPResponseCallback,
   };
 };
 

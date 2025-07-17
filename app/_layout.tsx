@@ -75,7 +75,7 @@ function NavigationLayout() {
   const { isConnected, disconnectFromPeripheral } = useBLEContext();
 
   if (!isConnected) {
-    // Show stack navigation when not connected (no drawer)
+    // Show only the scan screen when not connected
     return (
       <Stack
         screenOptions={{
@@ -94,22 +94,6 @@ function NavigationLayout() {
             title: "Weight Scale",
             headerShown: true,
             headerLeft: () => null, // Remove back button
-          }}
-        />
-        <Stack.Screen
-          name="menu"
-          options={{
-            title: "Commands",
-            headerShown: true,
-            headerBackTitle: "Back",
-          }}
-        />
-        <Stack.Screen
-          name="rmessage"
-          options={{
-            title: "R Message",
-            headerShown: true,
-            headerBackTitle: "Back",
           }}
         />
       </Stack>

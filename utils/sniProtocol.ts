@@ -83,7 +83,7 @@ export function parseRMessage(bytes: number[]): RMessageData {
       const digit = String.fromCharCode(displayChars[i]);
       const estado = estadoChars[i];
       
-      console.log(`🔍 Position ${i+1}: digit='${digit}' (${displayChars[i]}), estado=${estado} (0x${estado.toString(16)}, binary: ${estado.toString(2).padStart(8, '0')})`);
+      //console.log(`🔍 Position ${i+1}: digit='${digit}' (${displayChars[i]}), estado=${estado} (0x${estado.toString(16)}, binary: ${estado.toString(2).padStart(8, '0')})`);
       
       // Add the digit (even if it's a space or special character)
       displayText += digit;
@@ -96,7 +96,7 @@ export function parseRMessage(bytes: number[]): RMessageData {
       // 0x11h (DC1) = Intermittent digit with decimal point
       if (estado & 0x10) {
         displayText += ".";
-        console.log(`🔍 Added decimal point after position ${i+1} (estado: 0x${estado.toString(16)})`);
+        //console.log(`🔍 Added decimal point after position ${i+1} (estado: 0x${estado.toString(16)})`);
       }
     }
     

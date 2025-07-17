@@ -11,7 +11,7 @@ export function calculateChecksum(data: number[]): number {
   return (~sum + 1) & 0xff;
 }
 
-// Frame subkey mappings based on protocol documentation
+// Frame subkey mappings - these are correct and consistent for both commands and responses
 export const frameSubkeys: { [key in FrameType]: number } = {
   P: 0x05, // P Frame
   T: 0x06, // T Frame

@@ -1,10 +1,10 @@
 import React from "react";
 import {
-    ActivityIndicator,
-    StyleSheet,
-    Switch,
-    Text,
-    View
+  ActivityIndicator,
+  StyleSheet,
+  Switch,
+  Text,
+  View
 } from "react-native";
 import { COMPort, FrameType } from "./types";
 
@@ -28,7 +28,7 @@ export default function FrameSwitch({
   };
 
   // Debug logging to understand switch state
-  console.log(`FrameSwitch ${frameType} ${comPort}: isEnabled=${isEnabled}, isLoading=${isLoading}`);
+  //console.log(`FrameSwitch ${frameType} ${comPort}: isEnabled=${isEnabled}, isLoading=${isLoading}`);
 
   return (
     <View style={styles.container}>
