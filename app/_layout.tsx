@@ -1,5 +1,5 @@
 import { DrawerContentScrollView, DrawerItem } from "@react-navigation/drawer";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { Drawer } from "expo-router/drawer";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -12,51 +12,54 @@ function CustomDrawerContent(props: any) {
 
   return (
     <View style={styles.drawerContainer}>
-      <DrawerContentScrollView {...props} contentContainerStyle={styles.drawerScrollContent}>
+      <DrawerContentScrollView
+        {...props}
+        contentContainerStyle={styles.drawerScrollContent}
+      >
         <View style={styles.drawerHeader}>
           <Text style={styles.drawerTitle}>Weight Scale</Text>
           <Text style={styles.drawerSubtitle}>BLE Control Panel</Text>
         </View>
-        
+
         <View style={styles.drawerMainContent}>
           <DrawerItem
             label="Scale"
-            onPress={() => router.push('/rmessage')}
+            onPress={() => router.push("/rmessage")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
           <DrawerItem
             label="P Message"
-            onPress={() => router.push('/')}
+            onPress={() => router.push("/pmessage")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
           <DrawerItem
             label="HTTP Commands"
-            onPress={() => router.push('/menu')}
+            onPress={() => router.push("/menu")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
           <DrawerItem
             label="J Message Manager"
-            onPress={() => router.push('/jmessage')}
+            onPress={() => router.push("/jmessage")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
           <DrawerItem
             label="PP Commands"
-            onPress={() => router.push('/ppcommands')}
+            onPress={() => router.push("/ppcommands")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
         </View>
       </DrawerContentScrollView>
-      
+
       {/* Bottom section with About and Disconnect */}
       <View style={styles.drawerFooter}>
         <DrawerItem
           label="About"
-          onPress={() => router.push('/about')}
+          onPress={() => router.push("/about")}
           labelStyle={styles.drawerItemLabel}
           style={styles.drawerItem}
         />
@@ -72,38 +75,15 @@ function CustomDrawerContent(props: any) {
 }
 
 function NavigationLayout() {
-  const { isConnected, disconnectFromPeripheral } = useBLEContext();
+  const { isConnected } = useBLEContext();
 
-  if (!isConnected) {
-    // Show only the scan screen when not connected
-    return (
-      <Stack
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: "#ff0000",
-          },
-          headerTintColor: "#fff",
-          headerTitleStyle: {
-            fontWeight: "bold",
-          },
-        }}
-      >
-        <Stack.Screen
-          name="index"
-          options={{
-            title: "Weight Scale",
-            headerShown: true,
-            headerLeft: () => null, // Remove back button
-          }}
-        />
-      </Stack>
-    );
-  }
+  // Debug log to see connection state changes
+  //console.log("📱 NavigationLayout - isConnected:", isConnected);
 
-  // Show drawer navigation when connected
+  // Always use Drawer navigation, but control drawer access and initial route
   return (
     <Drawer
-      initialRouteName="rmessage"
+      initialRouteName={isConnected ? "rmessage" : "index"}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
         headerStyle: {
@@ -123,8 +103,20 @@ function NavigationLayout() {
         drawerLabelStyle: {
           fontSize: 16,
         },
+        // Hide drawer when not connected
+        swipeEnabled: isConnected,
+        drawerType: isConnected ? "front" : "back",
       }}
     >
+      <Drawer.Screen
+        name="index"
+        options={{
+          title: "Weight Scale",
+          headerShown: true,
+          headerLeft: () => null, // Remove hamburger button for scan screen
+          drawerItemStyle: { display: "none" }, // Hide from drawer menu
+        }}
+      />
       <Drawer.Screen
         name="rmessage"
         options={{
@@ -134,11 +126,11 @@ function NavigationLayout() {
         }}
       />
       <Drawer.Screen
-        name="index"
+        name="pmessage"
         options={{
           title: "P Message",
           headerShown: true,
-          drawerLabel: "P message",
+          drawerLabel: "P Message",
         }}
       />
       <Drawer.Screen

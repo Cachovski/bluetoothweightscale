@@ -286,6 +286,7 @@ export const useBLE = () => {
       
       // Update connected state
       setIsConnected(true);
+      console.log("🔗 Connection successful - setIsConnected(true) called");
       setConnectionError(null);
       
       return true;

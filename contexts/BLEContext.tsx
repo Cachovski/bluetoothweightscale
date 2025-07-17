@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import React, { createContext, ReactNode, useContext, useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useBLE } from '../hooks/useBLE';
@@ -13,6 +14,15 @@ interface BLEProviderProps {
 export const BLEProvider: React.FC<BLEProviderProps> = ({ children }) => {
   // Use the BLE hook to get all the functionality
   const bleState = useBLE();
+  const router = useRouter();
+  
+  // Navigate to rmessage when connected
+  useEffect(() => {
+    if (bleState.isConnected) {
+      //console.log("🎯 Navigation: Connected detected, navigating to rmessage");
+      router.replace('/rmessage');
+    }
+  }, [bleState.isConnected, router]);
   
   // Ensure disconnection is always handled properly
   useEffect(() => {

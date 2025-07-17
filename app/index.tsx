@@ -1,8 +1,7 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef } from "react"; // Added useEffect and useRef
-import { Alert, Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View } from "react-native";
 import DisconnectedState from "../components/bluetooth/DisconnectedState";
-import WeightDisplay from "../components/WeightDisplay";
 import { useBLEContext } from "../contexts/BLEContext";
 import {
   borderRadius,
@@ -36,13 +35,6 @@ export default function Index() {
       try {
         // Force navigate to home screen, ignoring router state
         router.replace("/");
-
-        // Optionally show alert to user
-        Alert.alert(
-          "Disconnected",
-          "The connection to your device was lost. Please try reconnecting.",
-          [{ text: "OK" }]
-        );
       } catch (err) {
         console.error("Navigation error:", err);
         // Last resort - reload app
@@ -66,38 +58,22 @@ export default function Index() {
 
   return (
     <View style={commonStyles.container}>
-      {!isConnected ? (
-        /* Disconnected Screen */
-        <View style={styles.mainContent}>
-          <View style={styles.headerContainer}>
-            <Text style={styles.title}>Bluetooth Weight Scale</Text>
-            <Text style={styles.subtitle}>
-              Connect to your scale to get started
-            </Text>
-          </View>
-
-          <DisconnectedState
-            peripherals={Array.from(peripherals.values())}
-            isScanning={isScanning}
-            onScanPress={startScan}
-            onConnect={handleConnect}
-          />
+      {/* Scan Screen Only */}
+      <View style={styles.mainContent}>
+        <View style={styles.headerContainer}>
+          <Text style={styles.title}>Bluetooth Weight Scale</Text>
+          <Text style={styles.subtitle}>
+            Connect to your scale to get started
+          </Text>
         </View>
-      ) : (
-        /* Connected Screen - shows weight display only */
-        <View style={styles.mainContent}>
-          <View style={styles.weightDisplayContainer}>
-            <WeightDisplay weightData={weightData} />
-          </View>
 
-          <View style={styles.connectionInfo}>
-            <Text style={styles.connectionText}>
-              Connected to:{" "}
-              {bleService?.peripheralId?.substring(0, 12) || "Unknown"}...
-            </Text>
-          </View>
-        </View>
-      )}
+        <DisconnectedState
+          peripherals={Array.from(peripherals.values())}
+          isScanning={isScanning}
+          onScanPress={startScan}
+          onConnect={handleConnect}
+        />
+      </View>
     </View>
   );
 }
