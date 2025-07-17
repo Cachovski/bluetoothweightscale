@@ -80,6 +80,7 @@ export const useBLE = () => {
   const bufferRef = useRef("");
   const bracketCountRef = useRef(0);
   const [responseTimeout, setResponseTimeout] = useState<number | null>(null);
+  const [notificationsReady, setNotificationsReady] = useState<boolean>(false);
 
   // Request permissions
   const requestPermissions = useCallback(async () => {
@@ -309,6 +310,7 @@ export const useBLE = () => {
       setRMessageData([]);
       setTMessageData([]);
       setWeightData(defaultWeightData);
+      setNotificationsReady(false);
       
       return true;
     } catch (error) {
@@ -381,6 +383,10 @@ export const useBLE = () => {
         console.log(`⏭️ Skipping ${charUuid} - not a target characteristic`);
       }
     }
+    
+    // Set notifications ready after all characteristics are processed
+    console.log("📡 All notifications setup complete");
+    setNotificationsReady(true);
   };
 
   // Handle characteristic value updates
@@ -821,6 +827,7 @@ export const useBLE = () => {
     weightData,
     commandResponse,
     ppResponse,
+    notificationsReady,
     bleManager,
     startScan,
     stopScan,

@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import {
-  FlatList,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -593,15 +592,15 @@ export default function PPCommandsScreen() {
         <Text style={styles.title}>PP Commands</Text>
 
         {/* Category selector */}
-        <FlatList
+        <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoryScroll}
           contentContainerStyle={styles.categoryScrollContent}
-          data={categories}
-          keyExtractor={(item) => item}
-          renderItem={({ item: cat }) => (
+        >
+          {categories.map((cat) => (
             <TouchableOpacity
+              key={cat}
               style={[
                 styles.categoryButton,
                 selectedCategory === cat && styles.categoryButtonActive,
@@ -617,8 +616,8 @@ export default function PPCommandsScreen() {
                 {cat}
               </Text>
             </TouchableOpacity>
-          )}
-        />
+          ))}
+        </ScrollView>
 
         {/* COM section */}
         {selectedCategory === "COM" && (

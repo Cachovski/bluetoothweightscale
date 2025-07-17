@@ -1,16 +1,15 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-  FlatList,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useBLEContext } from "../contexts/BLEContext";
 
@@ -475,11 +474,9 @@ export default function MenuScreen() {
             </Text>
           </View>
         ) : (
-          <FlatList
-            data={responses}
-            keyExtractor={(_, idx) => idx.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.responseItem}>
+          <View style={{ paddingBottom: 32 }}>
+            {responses.map((item, idx) => (
+              <View key={idx} style={styles.responseItem}>
                 <View style={styles.responseHeader}>
                   <Text style={styles.responseCommand}>{item.command}</Text>
                   <Text style={styles.responseTime}>
@@ -488,9 +485,8 @@ export default function MenuScreen() {
                 </View>
                 <Text style={styles.responseText}>{item.response}</Text>
               </View>
-            )}
-            contentContainerStyle={{ paddingBottom: 32 }}
-          />
+            ))}
+          </View>
         )}
       </View>
     </ScrollView>
