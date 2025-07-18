@@ -4,6 +4,13 @@ import {
   Text,
   View
 } from "react-native";
+import {
+  brightnessMinweightTable,
+  getCommandTypeFromSubkey,
+  interpretBrightnessIntensity,
+  interpretResponseValue,
+  kgSymbolTable
+} from "./utils";
 
 interface ResponseSectionProps {
   sending: boolean;
@@ -37,12 +44,25 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
       // Check for ACK/NACK response
       const ackNackInfo = parseAckNack(bytes);
       
+      // Parse PP response data if it's a valid read response
+      const ppResponseInfo = parsePPResponseData(bytes);
+      
       return (
         <View>
           <Text style={styles.responseLabel}>📩 Raw Response Data:</Text>
           <Text style={styles.responseValue}>- Length: {bytes.length} bytes</Text>
           <Text style={styles.responseValue}>- Hex: {hexResponse}</Text>
           <Text style={styles.responseValue}>- Bytes: [{bytes.join(', ')}]</Text>
+          
+          {ppResponseInfo && (
+            <>
+              <Text style={styles.responseLabel}>📊 Response Data Interpretation:</Text>
+              <Text style={styles.responseSuccess}>✅ {ppResponseInfo.commandType} Response</Text>
+              <Text style={styles.responseValue}>- COM Port: {ppResponseInfo.comPort}</Text>
+              <Text style={styles.responseValue}>- Raw Value: 0x{ppResponseInfo.rawValue.toString(16).padStart(2, '0').toUpperCase()} ({ppResponseInfo.rawValue})</Text>
+              <Text style={styles.responseSuccess}>- Interpreted Value: {ppResponseInfo.interpretedValue}</Text>
+            </>
+          )}
           
           {ackNackInfo && (
             <>
@@ -92,17 +112,94 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
     }
   };
 
-  const parseAckNack = (bytes: number[]) => {
-    // Check if this is a write response with ACK/NACK
-    // Format: DDDD020300FD0000010043
-    // Position 6: FD (ACK/NACK indicator)
-    // Position 7: 00 (subkey for ACK/NACK)
-    // Position 8: Status code (00 = ACK, other values = NACK types)
-    if (bytes.length >= 9 && bytes[0] === 0xDD && bytes[1] === 0xDD && bytes[6] === 0xFD) {
-      const subkey = bytes[7];
-      const statusCode = bytes[8];
+  const parsePPResponseData = (bytes: number[]) => {
+    // Check if this is a valid PP read response
+    // Standard format: DDDD020200010001033D03 (example for baudrate read)
+    // Brightness format: DDDD020000040001[checksum]03 (example for brightness duration read)
+    if (bytes.length >= 11 && bytes[0] === 0xDD && bytes[1] === 0xDD && bytes[2] === 0x02) {
       
-      console.log(`ACK/NACK parsing: FD at position 6, subkey: 0x${subkey.toString(16).padStart(2, '0').toUpperCase()}, status: 0x${statusCode.toString(16).padStart(2, '0').toUpperCase()}`);
+      let subkey: number;
+      let comPortByte: number;
+      let responseValue: number;
+      let commandType: string;
+      let comPort: string;
+      let interpretedValue: string;
+      
+      // Check if this is a standard COM command response (pattern: 020200010...)
+      if (bytes[3] === 0x02 && bytes[4] === 0x00 && bytes[5] === 0x01 && bytes.length >= 11) {
+        subkey = bytes[6];
+        comPortByte = bytes[7];
+        responseValue = bytes[8];
+        comPort = comPortByte === 0x01 ? "COM 1" : comPortByte === 0x02 ? "COM 2" : `Unknown (0x${comPortByte.toString(16).padStart(2, '0').toUpperCase()})`;
+        commandType = getCommandTypeFromSubkey(subkey);
+        interpretedValue = interpretResponseValue(subkey, responseValue) || `Unknown value (0x${responseValue.toString(16).padStart(2, '0').toUpperCase()})`;
+      }
+      // Check if this is a brightness command response (pattern: 020000040...)
+      else if (bytes[3] === 0x00 && bytes[4] === 0x00 && bytes[5] === 0x04 && bytes.length >= 10) {
+        const brightnessSubtype = bytes[6];
+        responseValue = bytes[7];
+        comPort = "Global"; // Brightness commands don't use COM ports
+        
+        switch (brightnessSubtype) {
+          case 0x00:
+            commandType = "Brightness Duration";
+            interpretedValue = interpretResponseValue(0x04, responseValue) || `Unknown duration (0x${responseValue.toString(16).padStart(2, '0').toUpperCase()})`;
+            break;
+          case 0x01:
+            commandType = "Brightness Intensity";
+            interpretedValue = interpretBrightnessIntensity(responseValue);
+            break;
+          case 0x02:
+            commandType = "Brightness Min Weight";
+            interpretedValue = brightnessMinweightTable[responseValue] || `Unknown state (0x${responseValue.toString(16).padStart(2, '0').toUpperCase()})`;
+            break;
+          case 0x03:
+            commandType = "KG Symbol";
+            interpretedValue = kgSymbolTable[responseValue] || `Unknown state (0x${responseValue.toString(16).padStart(2, '0').toUpperCase()})`;
+            break;
+          default:
+            commandType = `Unknown Brightness Command (0x${brightnessSubtype.toString(16).padStart(2, '0').toUpperCase()})`;
+            interpretedValue = `Unknown value (0x${responseValue.toString(16).padStart(2, '0').toUpperCase()})`;
+        }
+        subkey = 0x04; // All brightness commands use this subkey
+      }
+      // Unknown format
+      else {
+        return null;
+      }
+      
+      return {
+        commandType,
+        comPort,
+        rawValue: responseValue,
+        interpretedValue,
+        subkey
+      };
+    }
+    
+    return null;
+  };
+
+  const parseAckNack = (bytes: number[]) => {
+    // Check if this is an ACK/NACK response
+    // Format examples:
+    // - ACK: DDDD020100FD00003A03 (status code 00 = success)
+    // - Timeout NACK: DDDD020100FD000A3C03 (status code 0A = timeout)
+    // - Invalid Key NACK: DDDD020100FD00023803 (status code 02 = invalid key)
+    // Structure: [DD DD 02 01 00 FD 00 STATUS_CODE CHECKSUM 03]
+    // Position 5: FD (ACK/NACK indicator)
+    // Position 6: 00 (subkey for ACK/NACK, always 00)  
+    // Position 7: Status code (00 = ACK, 01-0B = various NACK types)
+    if (bytes.length >= 10 && 
+        bytes[0] === 0xDD && 
+        bytes[1] === 0xDD && 
+        bytes[2] === 0x02 &&
+        bytes[5] === 0xFD && 
+        bytes[6] === 0x00) {
+      
+      const statusCode = bytes[7];
+      
+      //console.log(`ACK/NACK parsing: FD at position 5, subkey: 0x${bytes[6].toString(16).padStart(2, '0').toUpperCase()}, status: 0x${statusCode.toString(16).padStart(2, '0').toUpperCase()}`);
       
       if (statusCode === 0x00) {
         return {
@@ -135,30 +232,32 @@ export default function ResponseSection({ sending, ppResponse }: ResponseSection
 
   const getNackMessage = (statusCode: number): string => {
     switch (statusCode) {
+      case 0x00:
+        return "ACK - Command successful";
       case 0x01:
-        return "Generic error";
+        return "Generic NACK";
       case 0x02:
-        return "Invalid key";
+        return "Invalid Key NACK";
       case 0x03:
-        return "Invalid subkey";
+        return "Invalid Subkey NACK";
       case 0x04:
-        return "Invalid data size";
+        return "Invalid Size NACK";
       case 0x05:
-        return "Invalid CRC";
+        return "Invalid CRC NACK";
       case 0x06:
-        return "Invalid data";
+        return "Invalid Data NACK";
       case 0x07:
-        return "Device busy";
+        return "Busy NACK";
       case 0x08:
-        return "Read only - Cannot write to this parameter";
+        return "Read Only NACK";
       case 0x09:
-        return "Write only - Cannot read from this parameter";
+        return "Write Only NACK";
       case 0x0A:
-        return "Hardware error";
+        return "Timeout NACK";
       case 0x0B:
-        return "Timeout";
+        return "HW Error NACK";
       default:
-        return `Unknown error (0x${statusCode.toString(16).padStart(2, '0').toUpperCase()})`;
+        return `Unknown NACK (0x${statusCode.toString(16).padStart(2, '0').toUpperCase()})`;
     }
   };
 

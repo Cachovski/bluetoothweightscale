@@ -970,32 +970,12 @@ export default function PPCommandsScreen() {
                 <Text style={styles.sectionTitle}>
                   Frame Controls - {selectedCOM}
                 </Text>
-                <View style={styles.buttonGroup}>
-                  <TouchableOpacity
-                    style={styles.debugButton}
-                    onPress={() => {
-                      // console.log("Testing response parsing...");
-                      // Test with frame enabled for COM1
-                      testResponseParsing("DDDD0202000107010138");
-                      // Test with frame disabled for COM1
-                      testResponseParsing("DDDD0202000107010039");
-                      // Test with frame enabled for COM2
-                      testResponseParsing("DDDD0202000107020137");
-                      // Test with frame disabled for COM2
-                      testResponseParsing("DDDD020200010702003A");
-                      // Test with Response: prefix
-                      testResponseParsing("Response: DDDD0202000107010138");
-                    }}
-                  >
-                    <Text style={styles.debugButtonText}>Test</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.refreshButton}
-                    //onPress={() => readFrameStatesForCOM(selectedCOM)}
-                  >
-                    <Text style={styles.refreshButtonText}>Refresh</Text>
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={styles.refreshButton}
+                  //onPress={() => readFrameStatesForCOM(selectedCOM)}
+                >
+                  <Text style={styles.refreshButtonText}>Refresh</Text>
+                </TouchableOpacity>
               </View>
               {(["P", "T", "R", "A", "Z", "J"] as FrameType[]).map(
                 (frameType) => (
