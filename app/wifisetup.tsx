@@ -80,6 +80,7 @@ export default function WiFiSetupScreen() {
   const [password, setPassword] = useState("");
   const [authCode, setAuthCode] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Disconnect modal state
   const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
@@ -223,6 +224,7 @@ export default function WiFiSetupScreen() {
     setSelectedNetwork(network);
     setPassword("");
     setAuthCode("");
+    setShowPassword(false);
     setConnectionModalVisible(true);
   };
 
@@ -582,15 +584,25 @@ export default function WiFiSetupScreen() {
             {/* Password Input */}
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>WiFi Password</Text>
-              <TextInput
-                style={styles.textInput}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter WiFi password"
-                secureTextEntry={true}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter WiFi password"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.passwordToggleButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Text style={styles.passwordToggleText}>
+                    {showPassword ? "Hide" : "Show"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Authentication Code Input */}
@@ -979,6 +991,32 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     backgroundColor: "#fff",
+  },
+  // Password Input with Toggle Styles
+  passwordInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    backgroundColor: "#fff",
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  passwordToggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderLeftWidth: 1,
+    borderLeftColor: "#ddd",
+  },
+  passwordToggleText: {
+    fontSize: 14,
+    color: "#007AFF",
+    fontWeight: "500",
   },
   inputHelp: {
     fontSize: 12,
