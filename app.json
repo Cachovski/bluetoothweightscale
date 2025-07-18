@@ -2,7 +2,7 @@
   "expo": {
     "name": "BM1000 DEV",
     "slug": "bluetoothweightscale",
-    "version": "1.5.2",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/images/iconWEIGH_ID-rounded.png",
     "scheme": "bluetoothweightscale",
@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "buildNumber": "1.5.2",
+      "buildNumber": "1.7.0",
       "bundleIdentifier": "com.franciscotm.bluetoothweightscale",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
