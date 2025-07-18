@@ -66,11 +66,11 @@ export default function PPCommandsScreen() {
   const ble = useBLEContext();
 
   // Read all frame states when connected
-  /*useEffect(() => {
+  useEffect(() => {
     if (ble?.isConnected && ble?.bleService) {
       readAllFrameStates();
     }
-  }, [ble?.isConnected, ble?.bleService])*/
+  }, [ble?.isConnected, ble?.bleService]);
 
   // Parse frame response and validate it matches expected frame type and COM port
   const parseAndValidateFrameResponse = (

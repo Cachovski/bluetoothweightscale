@@ -1,15 +1,15 @@
 import { useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import {
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useBLEContext } from "../contexts/BLEContext";
 

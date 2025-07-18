@@ -23,6 +23,33 @@ export const BLEProvider: React.FC<BLEProviderProps> = ({ children }) => {
       router.replace('/rmessage');
     }
   }, [bleState.isConnected, router]);
+
+  // Automatically execute background commands when notifications are ready
+  useEffect(() => {
+    if (bleState.notificationsReady && bleState.isConnected && bleState.bleService) {
+      console.log("🚀 BLE notifications ready, executing background commands...");
+      
+      // Execute background commands without user seeing them
+      const executeBackgroundCommands = async () => {
+        try {
+          // Wait a bit for notifications to fully stabilize
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // Execute get_module_info for WiFi setup and about screens
+          await bleState.sendBMCommand("bm_ble/get_module_info");
+          console.log("✅ Background command executed: get_module_info");
+          
+          // You can add more background commands here if needed
+          // await bleState.sendBMCommand("bm_ble/other_command");
+          
+        } catch (error) {
+          console.error("❌ Error executing background commands:", error);
+        }
+      };
+      
+      executeBackgroundCommands();
+    }
+  }, [bleState.notificationsReady, bleState.isConnected, bleState.bleService]);
   
   // Ensure disconnection is always handled properly
   useEffect(() => {

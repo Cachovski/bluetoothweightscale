@@ -480,13 +480,14 @@ export const useBLE = () => {
         // Check if this looks like a command echo (starts with '<T' and ends with '>')
         const dataString = String.fromCharCode(...data.value);
         if (dataString.startsWith('<T') && dataString.endsWith('>')) {
-          // console.log("⚠️ DD04 received command echo, ignoring:", dataString);
+          console.log("⚠️ DD04 received command echo, ignoring:", dataString);
           return; // Don't process command echoes as T messages
         }
         
         // Pass the raw byte array directly - similar to R message
         setTMessageData(data.value);
-        // console.log("✅ T Message updated with byte array");
+        console.log("✅ T Message updated with byte array");
+        console.log("📡 T Message as string:", dataString);
         
         return;
       }
@@ -503,10 +504,11 @@ export const useBLE = () => {
         }
         bracketCountRef.current = runningBracketCount;
         setAccumulatedResponse(bufferRef.current); // for UI display only
-        // console.log(`📡 DD01 chunk: "${responseChunk.replace(/\n/g, '')}"`);
-        // console.log(`🔄 Buffer length: ${bufferRef.current.length}, Bracket count: ${runningBracketCount}`);
+        console.log(`📡 DD01 chunk: "${responseChunk.replace(/\n/g, '')}"`);
+        console.log(`🔄 Buffer length: ${bufferRef.current.length}, Bracket count: ${runningBracketCount}`);
         // Only emit when bracket count returns to zero and at least one brace was seen
         if (runningBracketCount === 0 && bufferRef.current.includes('{')) {
+          console.log("✅ Complete HTTP response received:", bufferRef.current);
           setCommandResponse({
             command: lastCommand,
             response: bufferRef.current,
@@ -515,9 +517,9 @@ export const useBLE = () => {
           bufferRef.current = "";
           bracketCountRef.current = 0;
           setAccumulatedResponse("");
-          // console.log("✅ Complete response emitted to user");
+          console.log("✅ Complete response emitted to user");
         } else {
-          // console.log("🔄 Waiting for more chunks...");
+          console.log("🔄 Waiting for more chunks...");
         }
         return;
       }
@@ -643,6 +645,7 @@ export const useBLE = () => {
         cmdChar.uuid,
         bytes.toString('base64')
       );
+      setLastCommand(command);
       console.log("T Command sent successfully");
       return true;
     } catch (error: any) {

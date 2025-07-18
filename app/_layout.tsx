@@ -52,6 +52,12 @@ function CustomDrawerContent(props: any) {
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
+          <DrawerItem
+            label="WiFi Setup"
+            onPress={() => router.push("/wifisetup")}
+            labelStyle={styles.drawerItemLabel}
+            style={styles.drawerItem}
+          />
         </View>
       </DrawerContentScrollView>
 
@@ -155,6 +161,14 @@ function NavigationLayout() {
           title: "PP Commands",
           headerShown: true,
           drawerLabel: "PP Commands",
+        }}
+      />
+      <Drawer.Screen
+        name="wifisetup"
+        options={{
+          title: "WiFi Setup",
+          headerShown: true,
+          drawerLabel: "WiFi Setup",
         }}
       />
       <Drawer.Screen
