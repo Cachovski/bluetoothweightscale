@@ -284,21 +284,26 @@ export default function MenuScreen() {
     params?: Array<{ key: string; value: string }>
   ) => {
     let fullCommand = `bm_ble/${command}`;
+    
     // Special handling for wifi_connect
     if (command === "wifi_connect" && params && params.length > 0) {
       // Find values
       const ssid = params.find(p => p.key === "ssid")?.value || "";
       const password = params.find(p => p.key === "password")?.value || "";
       const auth = params.find(p => p.key === "auth")?.value || "";
-      // Base64 encode auth
+      
+      // Base64 encode auth with admin: prefix
       let passbase64 = "";
       try {
-        passbase64 = typeof btoa !== 'undefined' ? btoa(auth) : Buffer.from(auth, 'utf-8').toString('base64');
+        const authWithPrefix = `admin:${auth}`;
+        passbase64 = typeof btoa !== 'undefined' ? btoa(authWithPrefix) : Buffer.from(authWithPrefix, 'utf-8').toString('base64');
       } catch (e) {
         passbase64 = "";
       }
+      
       // Build raw string
       const rawString = `ssid=${ssid}&password=${password}&auth=${passbase64}`;
+      
       // Base64 encode the whole string
       let encoded = "";
       try {
@@ -307,12 +312,47 @@ export default function MenuScreen() {
         encoded = "";
       }
       fullCommand = `bm_ble/wifi_connect?${encoded}`;
-    } else if (params && params.length > 0) {
-      const paramString = params
+    } 
+    // Special handling for wifi_disconnect (only auth parameter)
+    else if (command === "wifi_disconnect" && params && params.length > 0) {
+      const auth = params.find(p => p.key === "auth")?.value || "";
+      
+      // Base64 encode auth with admin: prefix
+      let authBase64 = "";
+      try {
+        const authWithPrefix = `admin:${auth}`;
+        authBase64 = typeof btoa !== 'undefined' ? btoa(authWithPrefix) : Buffer.from(authWithPrefix, 'utf-8').toString('base64');
+      } catch (e) {
+        authBase64 = "";
+      }
+      
+      fullCommand = `bm_ble/wifi_disconnect?auth=${authBase64}`;
+    }
+    // Handle other commands with auth parameters
+    else if (params && params.length > 0) {
+      const processedParams = params.map(param => {
+        // If this is an auth parameter, encode it with admin: prefix
+        if (param.key === "auth" && param.value) {
+          try {
+            const authWithPrefix = `admin:${param.value}`;
+            const authBase64 = typeof btoa !== 'undefined' ? 
+              btoa(authWithPrefix) : 
+              Buffer.from(authWithPrefix, 'utf-8').toString('base64');
+            return { key: param.key, value: authBase64 };
+          } catch (e) {
+            console.error("Error encoding auth parameter:", e);
+            return param; // Return original if encoding fails
+          }
+        }
+        return param; // Return original for non-auth parameters
+      });
+      
+      const paramString = processedParams
         .map((p) => `${p.key}=${encodeURIComponent(p.value)}`)
         .join("&");
       fullCommand += `?${paramString}`;
     }
+    
     try {
       setResponses((prev) => [
         {

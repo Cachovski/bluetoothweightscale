@@ -29,20 +29,14 @@ function CustomDrawerContent(props: any) {
             style={styles.drawerItem}
           />
           <DrawerItem
-            label="P Message"
-            onPress={() => router.push("/pmessage")}
-            labelStyle={styles.drawerItemLabel}
-            style={styles.drawerItem}
-          />
-          <DrawerItem
             label="HTTP Commands"
             onPress={() => router.push("/menu")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
           <DrawerItem
-            label="J Message"
-            onPress={() => router.push("/jmessage")}
+            label="Messages"
+            onPress={() => router.push("/messages")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
           />
@@ -132,14 +126,6 @@ function NavigationLayout() {
         }}
       />
       <Drawer.Screen
-        name="pmessage"
-        options={{
-          title: "P Message",
-          headerShown: true,
-          drawerLabel: "P Message",
-        }}
-      />
-      <Drawer.Screen
         name="menu"
         options={{
           title: "HTTP Commands",
@@ -148,11 +134,11 @@ function NavigationLayout() {
         }}
       />
       <Drawer.Screen
-        name="jmessage"
+        name="messages"
         options={{
-          title: "J Message",
+          title: "Messages",
           headerShown: true,
-          drawerLabel: "J Message",
+          drawerLabel: "Messages",
         }}
       />
       <Drawer.Screen

@@ -70,6 +70,8 @@ export const useBLE = () => {
   const [tMessageData, setTMessageData] = useState<number[]>([]);
   // J Message state
   const [jMessageData, setJMessageData] = useState<number[]>([]);
+  // P Message state
+  const [pMessageData, setPMessageData] = useState<number[]>([]);
   const [weightData, setWeightData] = useState<WeightData>(defaultWeightData);
   const [commandResponse, setCommandResponse] = useState<CommandResponse | null>(null);
   // PP Command response (DD08)
@@ -528,6 +530,9 @@ export const useBLE = () => {
         // console.log("📊 Processing dd02 P message data");
         // console.log("P message raw bytes:", data.value);
         
+        // Store raw P message data
+        setPMessageData(Array.from(data.value));
+        
         try {
           // Check if this is a P message (should start with ASCII 'P' which is 0x50)
           if (data.value[0] === 0x50) {
@@ -845,6 +850,7 @@ export const useBLE = () => {
     rMessageData,
     tMessageData,
     jMessageData,
+    pMessageData,
     weightData,
     commandResponse,
     ppResponse,
