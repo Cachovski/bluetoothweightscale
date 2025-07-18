@@ -41,7 +41,7 @@ function CustomDrawerContent(props: any) {
             style={styles.drawerItem}
           />
           <DrawerItem
-            label="J Message Manager"
+            label="J Message"
             onPress={() => router.push("/jmessage")}
             labelStyle={styles.drawerItemLabel}
             style={styles.drawerItem}
@@ -152,7 +152,7 @@ function NavigationLayout() {
         options={{
           title: "J Message",
           headerShown: true,
-          drawerLabel: "J Message Manager",
+          drawerLabel: "J Message",
         }}
       />
       <Drawer.Screen
