@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -71,6 +73,19 @@ export default function WiFiSetupScreen() {
   const [scanError, setScanError] = useState<string | null>(null);
   const [moduleInfo, setModuleInfo] = useState<ModuleInfo | null>(null);
   const [isLoadingModuleInfo, setIsLoadingModuleInfo] = useState(false);
+  
+  // Connection modal state
+  const [connectionModalVisible, setConnectionModalVisible] = useState(false);
+  const [selectedNetwork, setSelectedNetwork] = useState<WiFiNetwork | null>(null);
+  const [password, setPassword] = useState("");
+  const [authCode, setAuthCode] = useState("");
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  // Disconnect modal state
+  const [disconnectModalVisible, setDisconnectModalVisible] = useState(false);
+  const [disconnectAuthCode, setDisconnectAuthCode] = useState("");
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  
   const ble = useBLEContext();
 
   // Parse module info response
@@ -205,20 +220,138 @@ export default function WiFiSetupScreen() {
 
   // Connect to WiFi network
   const connectToNetwork = (network: WiFiNetwork) => {
-    Alert.alert(
-      "Connect to WiFi",
-      `Do you want to connect to "${network.ssid}"?\n\nSignal: ${getSignalStrength(network.rssi)} (${network.rssi} dBm)\nSecurity: ${getAuthModeText(network.authmode)}`,
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Connect", 
-          onPress: () => {
-            // TODO: Implement WiFi connection logic
-            Alert.alert("Coming Soon", "WiFi connection will be implemented in the next update.");
-          }
-        },
-      ]
-    );
+    setSelectedNetwork(network);
+    setPassword("");
+    setAuthCode("");
+    setConnectionModalVisible(true);
+  };
+
+  // Handle WiFi connection
+  const handleWiFiConnection = async () => {
+    if (!selectedNetwork || !ble?.isConnected || !ble?.bleService) {
+      Alert.alert("Error", "Not connected to device or no network selected");
+      return;
+    }
+
+    if (!authCode.trim()) {
+      Alert.alert("Error", "Authentication code is required");
+      return;
+    }
+
+    setIsConnecting(true);
+    try {
+      console.log("📡 Connecting to WiFi:", selectedNetwork.ssid);
+      
+      // Define os dados (using user input instead of hardcoded values)
+      let ssid = selectedNetwork.ssid;
+      let pass = password;
+      let auth = `admin:${authCode.trim()}`;
+
+      let passbase64 = "";
+
+      // Codifica em Base64
+      try {
+        passbase64 = typeof btoa !== 'undefined' ? btoa(auth) : Buffer.from(auth, 'utf-8').toString('base64');
+      } catch (e) {
+        console.error("❌ Error encoding auth:", e);
+        Alert.alert("Error", "Failed to encode authentication");
+        setIsConnecting(false);
+        return;
+      }
+
+      // Constrói a string completa
+      let rawString = `ssid=${ssid}&password=${pass}&auth=${passbase64}`;
+      console.log("📡 Raw connection string:", rawString);
+
+      // Codifica em Base64
+      let encoded = "";
+      try {
+        encoded = typeof btoa !== 'undefined' ? btoa(rawString) : Buffer.from(rawString, 'utf-8').toString('base64');
+      } catch (e) {
+        console.error("❌ Error encoding command:", e);
+        Alert.alert("Error", "Failed to encode command");
+        setIsConnecting(false);
+        return;
+      }
+
+      console.log("📡 Encoded Base64:", encoded);
+      
+      // Send the command
+      await ble.sendBMCommand(`bm_ble/wifi_connect?${encoded}`);
+      
+      // Close modal and show success message
+      setConnectionModalVisible(false);
+      Alert.alert(
+        "Connection Initiated", 
+        `Attempting to connect to "${selectedNetwork.ssid}". Check the device status for results.`
+      );
+      
+      // Refresh module info after a delay to see if connection succeeded
+      setTimeout(() => {
+        getModuleInfo();
+      }, 5000);
+      
+    } catch (error: any) {
+      console.error("❌ WiFi connection error:", error);
+      Alert.alert("Connection Error", error.message || "Failed to connect to WiFi");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
+
+  // Handle WiFi disconnection
+  const handleWiFiDisconnection = async () => {
+    if (!ble?.isConnected || !ble?.bleService) {
+      Alert.alert("Error", "Not connected to device");
+      return;
+    }
+
+    if (!disconnectAuthCode.trim()) {
+      Alert.alert("Error", "Authentication code is required");
+      return;
+    }
+
+    setIsDisconnecting(true);
+    try {
+      console.log("📡 Disconnecting from WiFi...");
+      
+      // Build auth string with admin prefix
+      let auth = `admin:${disconnectAuthCode.trim()}`;
+      
+      // Encode to Base64
+      let authBase64 = "";
+      try {
+        authBase64 = typeof btoa !== 'undefined' ? btoa(auth) : Buffer.from(auth, 'utf-8').toString('base64');
+      } catch (e) {
+        console.error("❌ Error encoding auth:", e);
+        Alert.alert("Error", "Failed to encode authentication");
+        setIsDisconnecting(false);
+        return;
+      }
+
+      console.log("📡 Auth Base64:", authBase64);
+      
+      // Send the disconnect command
+      await ble.sendBMCommand(`bm_ble/wifi_disconnect?auth=${authBase64}`);
+      
+      // Close modal and show success message
+      setDisconnectModalVisible(false);
+      Alert.alert(
+        "Disconnection Initiated", 
+        "Attempting to disconnect from WiFi. Check the device status for results."
+      );
+      
+      // Refresh module info after a delay to see if disconnection succeeded
+      setTimeout(() => {
+        getModuleInfo();
+      }, 3000);
+      
+    } catch (error: any) {
+      console.error("❌ WiFi disconnection error:", error);
+      Alert.alert("Disconnection Error", error.message || "Failed to disconnect from WiFi");
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
   // Auto-load module info and WiFi scan when screen loads
@@ -312,17 +445,18 @@ export default function WiFiSetupScreen() {
                 {moduleInfo.sta.gateway && (
                   <Text style={styles.currentWifiIP}>Gateway: {moduleInfo.sta.gateway}</Text>
                 )}
+                
+                {/* Disconnect Button */}
+                <TouchableOpacity
+                  style={styles.disconnectButton}
+                  onPress={() => setDisconnectModalVisible(true)}
+                >
+                  <Text style={styles.disconnectButtonText}>Disconnect</Text>
+                </TouchableOpacity>
               </View>
             ) : (
               <Text style={styles.noConnectionText}>No WiFi connection</Text>
             )}
-          </View>
-        )}
-
-        {isLoadingModuleInfo && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color="#ff0000" />
-            <Text style={styles.loadingText}>Loading current connection...</Text>
           </View>
         )}
 
@@ -421,6 +555,155 @@ export default function WiFiSetupScreen() {
         {/* Bottom spacing */}
         <View style={{ height: 50 }} />
       </ScrollView>
+
+      {/* WiFi Connection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={connectionModalVisible}
+        onRequestClose={() => setConnectionModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Connect to WiFi</Text>
+            
+            {selectedNetwork && (
+              <View style={styles.networkInfoContainer}>
+                <Text style={styles.modalNetworkName}>{selectedNetwork.ssid}</Text>
+                <Text style={styles.modalNetworkDetails}>
+                  Signal: {getSignalStrength(selectedNetwork.rssi)} ({selectedNetwork.rssi} dBm)
+                </Text>
+                <Text style={styles.modalNetworkDetails}>
+                  Security: {getAuthModeText(selectedNetwork.authmode)}
+                </Text>
+              </View>
+            )}
+
+            {/* Password Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>WiFi Password</Text>
+              <TextInput
+                style={styles.textInput}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter WiFi password"
+                secureTextEntry={true}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+
+            {/* Authentication Code Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Authentication Code *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={authCode}
+                onChangeText={setAuthCode}
+                placeholder="Enter authentication code"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.inputHelp}>
+                Required for device authentication
+              </Text>
+            </View>
+
+            {/* Modal Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setConnectionModalVisible(false)}
+                disabled={isConnecting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.connectButton, 
+                  (!authCode.trim() || isConnecting) && styles.connectButtonDisabled]}
+                onPress={handleWiFiConnection}
+                disabled={!authCode.trim() || isConnecting}
+              >
+                {isConnecting ? (
+                  <View style={styles.connectingContent}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.connectButtonText}>Connecting...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.connectButtonText}>Connect</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* WiFi Disconnection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={disconnectModalVisible}
+        onRequestClose={() => setDisconnectModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Disconnect from WiFi</Text>
+            
+            {moduleInfo?.sta && (
+              <View style={styles.networkInfoContainer}>
+                <Text style={styles.modalNetworkName}>{moduleInfo.sta.ssid}</Text>
+                <Text style={styles.modalNetworkDetails}>
+                  Currently connected with IP: {moduleInfo.sta.ip}
+                </Text>
+              </View>
+            )}
+
+            {/* Authentication Code Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>Authentication Code *</Text>
+              <TextInput
+                style={styles.textInput}
+                value={disconnectAuthCode}
+                onChangeText={setDisconnectAuthCode}
+                placeholder="Enter authentication code"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Text style={styles.inputHelp}>
+                Required for device authentication
+              </Text>
+            </View>
+
+            {/* Modal Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setDisconnectModalVisible(false)}
+                disabled={isDisconnecting}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.disconnectModalButton, 
+                  (!disconnectAuthCode.trim() || isDisconnecting) && styles.connectButtonDisabled]}
+                onPress={handleWiFiDisconnection}
+                disabled={!disconnectAuthCode.trim() || isDisconnecting}
+              >
+                {isDisconnecting ? (
+                  <View style={styles.connectingContent}>
+                    <ActivityIndicator size="small" color="#fff" />
+                    <Text style={styles.disconnectModalButtonText}>Disconnecting...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.disconnectModalButtonText}>Disconnect</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -631,5 +914,137 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     marginLeft: 8,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  networkInfoContainer: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 20,
+  },
+  modalNetworkName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 4,
+  },
+  modalNetworkDetails: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 2,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  inputHelp: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
+    fontStyle: "italic",
+  },
+  modalButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 20,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  cancelButton: {
+    backgroundColor: "#f5f5f5",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  connectButton: {
+    backgroundColor: "#ff0000",
+  },
+  connectButtonDisabled: {
+    backgroundColor: "#ccc",
+  },
+  connectButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  connectingContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  // Disconnect Button Styles
+  disconnectButton: {
+    backgroundColor: "#dc3545",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 12,
+    alignItems: "center",
+  },
+  disconnectButtonText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  disconnectModalButton: {
+    backgroundColor: "#dc3545",
+  },
+  disconnectModalButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#fff",
   },
 });
